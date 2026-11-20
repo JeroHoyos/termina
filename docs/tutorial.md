@@ -9,7 +9,7 @@ Before you start, install the app. Refer to [Installation](installation.md).
 
 ## 1. Start the app
 
-1. Start `manimrs-studio.exe`, or double-click its shortcut.
+1. Start `termina.exe`, or double-click its shortcut.
 2. Look at the window. The first time, the app has no talks.
 
 ![The window of the app without talks, with the New talk and Open a talk buttons](images/first-start.png)

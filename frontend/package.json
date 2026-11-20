@@ -1,8 +1,8 @@
 {
-  "name": "manimrs-studio-frontend",
+  "name": "termina-frontend",
   "private": true,
   "version": "0.6.0",
-  "description": "The window of ManimRS Studio, in TypeScript",
+  "description": "The window of Termina, in TypeScript",
   "license": "MIT",
   "type": "module",
   "engines": {

@@ -1,6 +1,6 @@
 # Other agents
 
-The chat in the app runs Claude Code. But the tools of ManimRS Studio are an MCP server, and all
+The chat in the app runs Claude Code. But the tools of Termina are an MCP server, and all
 agents that use MCP can connect to it: OpenCode, Codex (ChatGPT), Gemini CLI, Cursor, VS Code and
 others. The agent can use the model that you select in it.
 
@@ -12,7 +12,7 @@ app. If the app is open, it shows each slide that the agent renders.
 The command, from the talks folder:
 
 ```powershell
-uv run --no-project manimrs-studio/engine/mcp_server.py
+uv run --no-project termina/engine/mcp_server.py
 ```
 
 The server gives these tools: `talks`, `slides`, `notes`, `render`, `view`, `place`, `export` and
@@ -37,7 +37,7 @@ In `opencode.json`, in the talks folder:
   "mcp": {
     "studio": {
       "type": "local",
-      "command": ["uv", "run", "--no-project", "manimrs-studio/engine/mcp_server.py"],
+      "command": ["uv", "run", "--no-project", "termina/engine/mcp_server.py"],
       "enabled": true
     }
   }
@@ -51,7 +51,7 @@ In `.codex/config.toml` of your user folder:
 ```toml
 [mcp_servers.studio]
 command = "uv"
-args = ["run", "--no-project", "C:/talks/manimrs-studio/engine/mcp_server.py"]
+args = ["run", "--no-project", "C:/talks/termina/engine/mcp_server.py"]
 ```
 
 ### Gemini CLI
@@ -63,7 +63,7 @@ In `.gemini/settings.json`, in the talks folder:
   "mcpServers": {
     "studio": {
       "command": "uv",
-      "args": ["run", "--no-project", "manimrs-studio/engine/mcp_server.py"]
+      "args": ["run", "--no-project", "termina/engine/mcp_server.py"]
     }
   }
 }
@@ -82,7 +82,7 @@ In `.vscode/mcp.json`, in the talks folder:
   "servers": {
     "studio": {
       "command": "uv",
-      "args": ["run", "--no-project", "manimrs-studio/engine/mcp_server.py"]
+      "args": ["run", "--no-project", "termina/engine/mcp_server.py"]
     }
   }
 }
@@ -91,7 +91,7 @@ In `.vscode/mcp.json`, in the talks folder:
 ### Claude Code in a terminal
 
 ```powershell
-claude mcp add studio -- uv run --no-project manimrs-studio/engine/mcp_server.py
+claude mcp add studio -- uv run --no-project termina/engine/mcp_server.py
 ```
 
 ## Tell the agent the procedure

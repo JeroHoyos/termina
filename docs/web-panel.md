@@ -5,10 +5,10 @@ files as the app. You can use the app, the web panel and the commands together.
 
 ## Start the web panel
 
-1. Double-click `studio.cmd` in the `manimrs-studio` folder.
+1. Double-click `studio.cmd` in the `termina` folder.
 2. Wait for the browser. It opens http://127.0.0.1:8765.
 
-To start it from a terminal, type `.\studio` in the `manimrs-studio` folder. To stop it, push
+To start it from a terminal, type `.\studio` in the `termina` folder. To stop it, push
 Ctrl+C in the terminal window.
 
 The web panel answers only to its own page. A web site in the browser cannot send it requests,

@@ -1752,24 +1752,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5d15f86d12da44cd8d4ec3c73984537eb7f4cadcb9776a575a0a8a05ca11005c"
 
 [[package]]
-name = "manimrs-studio"
-version = "0.6.0"
-dependencies = [
- "axum",
- "base64 0.23.1",
- "getrandom 0.3.4",
- "serde_json",
- "studio_agent",
- "studio_engine",
- "studio_shell",
- "tauri",
- "tauri-build",
- "tokio",
- "tower",
- "tower-http 0.7.1",
-]
-
-[[package]]
 name = "markup5ever"
 version = "0.39.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3380,6 +3362,24 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5fed54709c5b3a53d09bb1c113ea4f5ceafd1e772ddcb0030a82e1d56c087b08"
 dependencies = [
  "new_debug_unreachable",
+]
+
+[[package]]
+name = "termina"
+version = "0.6.0"
+dependencies = [
+ "axum",
+ "base64 0.23.1",
+ "getrandom 0.3.4",
+ "serde_json",
+ "studio_agent",
+ "studio_engine",
+ "studio_shell",
+ "tauri",
+ "tauri-build",
+ "tokio",
+ "tower",
+ "tower-http 0.7.1",
 ]
 
 [[package]]

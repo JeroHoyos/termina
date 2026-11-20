@@ -1,13 +1,13 @@
 ---
 name: slides
-description: Creates, changes and reviews the slides of the manim talks (charla-claude, charla-git, charla-redes-neuronales, charla-langchain and any other the Studio lists, in any folder) one at a time with the Studio, without rendering again or deleting the others. Use it when asked to make, edit, render, review, present or export slides, when a request copied from the panel is pasted (“/slides <talk> …”), or when /slides is invoked.
+description: Creates, changes and reviews the slides of the manim talks (charla-claude, charla-git, charla-redes-neuronales, charla-agentica and any other the Studio lists, in any folder) one at a time with the Studio, without rendering again or deleting the others. Use it when asked to make, edit, render, review, present or export slides, when a request copied from the panel is pasted (“/slides <talk> …”), or when /slides is invoked.
 ---
 
 # Slides, one at a time
 
-With the Studio (`manimrs-studio/engine/studio.py`, in the talks folder) each slide is rendered into
+With the Studio (`termina/engine/studio.py`, in the talks folder) each slide is rendered into
 its own file, `diapos/<name>.json` inside the talk. Rendering one never touches the others. The user
-reviews them in the panel (the ManimRS Studio app, or http://127.0.0.1:8765) and leaves notes there
+reviews them in the panel (the Termina app, or http://127.0.0.1:8765) and leaves notes there
 with the changes they want.
 
 ## Where each talk is
@@ -24,7 +24,7 @@ its language. Change it with `info --about "…"` (or by editing it) only if the
 
 ## Inside the app
 
-If you have the `mcp__studio__*` tools, you are in the chat of the “ManimRS Studio” app and the user
+If you have the `mcp__studio__*` tools, you are in the chat of the “Termina” app and the user
 sees the panel next to you. Use them instead of the commands:
 
 - `slides` and `notes` instead of `list` and `notes`;
@@ -37,26 +37,26 @@ Outside the app, use the commands below.
 
 ## Commands
 
-From the folder that holds the talks and `manimrs-studio`:
+From the folder that holds the talks and `termina`:
 
 ```bash
-uv run --no-project manimrs-studio/engine/studio.py <talk> list               # order, status and file of each one
-uv run --no-project manimrs-studio/engine/studio.py <talk> notes              # changes requested from the panel
-uv run --no-project manimrs-studio/engine/studio.py <talk> render <slide>...  # only those (name or number)
-uv run --no-project manimrs-studio/engine/studio.py <talk> stills <slide>     # PNG of the end of each pause
-uv run --no-project manimrs-studio/engine/studio.py <talk> new "git stash" --after <slide>  # file + registry + place
-uv run --no-project manimrs-studio/engine/studio.py <talk> move <slide> --after <slide>     # or --first
-uv run --no-project manimrs-studio/engine/studio.py <talk> rename <slide> "new name"        # moves its renders too
-uv run --no-project manimrs-studio/engine/studio.py <talk> delete <slide>     # its file goes to the recycle bin
-uv run --no-project manimrs-studio/engine/studio.py <talk> resolution <slide> 1080p         # or default
-uv run --no-project manimrs-studio/engine/studio.py <talk> note <slide> --clear
-uv run --no-project manimrs-studio/engine/studio.py talks                     # name, title and folder of each talk
-uv run --no-project manimrs-studio/engine/studio.py <talk> info              # its talk.manimrs
-uv run --no-project manimrs-studio/engine/studio.py open "C:/path/to/talk"   # adds a talk from any folder
-uv run --no-project manimrs-studio/engine/studio.py new-talk "Title" --about "…" [--in "C:/folder"] [--folder name]
+uv run --no-project termina/engine/studio.py <talk> list               # order, status and file of each one
+uv run --no-project termina/engine/studio.py <talk> notes              # changes requested from the panel
+uv run --no-project termina/engine/studio.py <talk> render <slide>...  # only those (name or number)
+uv run --no-project termina/engine/studio.py <talk> stills <slide>     # PNG of the end of each pause
+uv run --no-project termina/engine/studio.py <talk> new "git stash" --after <slide>  # file + registry + place
+uv run --no-project termina/engine/studio.py <talk> move <slide> --after <slide>     # or --first
+uv run --no-project termina/engine/studio.py <talk> rename <slide> "new name"        # moves its renders too
+uv run --no-project termina/engine/studio.py <talk> delete <slide>     # its file goes to the recycle bin
+uv run --no-project termina/engine/studio.py <talk> resolution <slide> 1080p         # or default
+uv run --no-project termina/engine/studio.py <talk> note <slide> --clear
+uv run --no-project termina/engine/studio.py talks                     # name, title and folder of each talk
+uv run --no-project termina/engine/studio.py <talk> info              # its talk.manimrs
+uv run --no-project termina/engine/studio.py open "C:/path/to/talk"   # adds a talk from any folder
+uv run --no-project termina/engine/studio.py new-talk "Title" --about "…" [--in "C:/folder"] [--folder name]
 ```
 
-`<talk>` goes in full or without “charla-”: `claude`, `git`, `redes-neuronales`, `langchain`, or any
+`<talk>` goes in full or without “charla-”: `claude`, `git`, `redes-neuronales`, `agentica`, or any
 other that `talks` lists. A slide repeated in `main.py` (the practice one) is called `practica`,
 `practica-2`, …
 

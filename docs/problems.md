@@ -7,7 +7,7 @@ Each section gives a message or a symptom, its cause and the solution.
 | Message | Cause | Solution |
 | --- | --- | --- |
 | *The app needs the Microsoft Edge WebView2 Runtime* | The window of the app is a WebView2. Windows 11 has it. Some Windows 10 computers do not have it. | Install the [WebView2 Runtime](https://developer.microsoft.com/microsoft-edge/webview2/). Then start the app again. |
-| *Can't find the talks folder* | The app did not find `manimrs-studio\engine\studio.py`. The `.exe` file is not in the repository, or the repository moved. | Start the app from `manimrs-studio\target\release`. If the `.exe` file is in a different place, set the `STUDIO_ROOT` variable to the talks folder. |
+| *Can't find the talks folder* | The app did not find `termina\engine\studio.py`. The `.exe` file is not in the repository, or the repository moved. | Start the app from `termina\target\release`. If the `.exe` file is in a different place, set the `STUDIO_ROOT` variable to the talks folder. |
 
 ## The window shows "uv is not installed"
 

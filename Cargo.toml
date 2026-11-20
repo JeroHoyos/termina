@@ -1,4 +1,4 @@
-# The Rust workspace of ManimRS Studio.
+# The Rust workspace of Termina.
 #
 #   crates/desktop/   the apps that a person opens (the Tauri desktop app)
 #   crates/lib/       the libraries of the apps; they do not depend on Tauri
@@ -8,7 +8,7 @@
 [workspace]
 resolver = "2"
 members = [
-    "crates/desktop/manimrs_studio",
+    "crates/desktop/termina",
     "crates/lib/studio_agent",
     "crates/lib/studio_engine",
     "crates/lib/studio_shell",

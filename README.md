@@ -1,6 +1,6 @@
 Language: EN | [Español](README.es.md)
 
-<h1 align="center">ManimRS Studio</h1>
+<h1 align="center">Termina</h1>
 
 <p align="center">
   <img src="https://img.shields.io/badge/Windows%20%7C%20Linux%20(experimental)-111827?style=for-the-badge" alt="Windows and Linux" />
@@ -8,7 +8,7 @@ Language: EN | [Español](README.es.md)
   <img src="https://img.shields.io/badge/status-pre--release%200.6-b45309?style=for-the-badge" alt="Pre-release 0.6" />
 </p>
 
-ManimRS Studio is an open-source desktop app for talks made with
+Termina is an open-source desktop app for talks made with
 [Manim Slides](https://github.com/jeertmans/manim-slides). Render only the slide that changed,
 point at what is wrong, and let an agent fix it.
 
@@ -25,7 +25,7 @@ point at what is wrong, and let an agent fix it.
 Manim Slides renders a talk as one scene. If you render some slides, you lose the other slides.
 If you render all the slides, you wait for all of them.
 
-ManimRS Studio keeps each slide in a file of its own, with its videos. When you render one slide,
+Termina keeps each slide in a file of its own, with its videos. When you render one slide,
 the other slides do not change. Each slide still starts with the transition from the slide before
 it.
 
@@ -65,13 +65,13 @@ Put this repository in the folder that holds your talks. If you do not have talk
 folder.
 
 ```powershell
-git clone https://github.com/JeroHoyos/manimrs-studio.git
-cd manimrs-studio\frontend
+git clone https://github.com/JeroHoyos/manimrs-studio.git termina
+cd termina\frontend
 npm ci
 npm run build
 cd ..
 cargo build --release
-.\target\release\manimrs-studio.exe
+.\target\release\termina.exe
 ```
 
 The app runs on Windows 10 and 11. Linux is experimental and macOS is not supported. Refer to
@@ -92,10 +92,10 @@ The [tutorial](docs/tutorial.md) shows each step with images. All the
 
 - **Good today:** render one slide, review with marks, the Claude chat, the exports, Windows.
 - **Thin:** Linux, other agents, the types of the window code.
-- **Not started:** installers, macOS, a dark theme, the interface in Spanish.
+- **Not started:** installers, macOS, the interface in Spanish.
 
 The steps to version 1.0 are an installer (0.7), strict TypeScript and themes (0.8), a second
-agent in the chat and speaker notes (0.9), then macOS and stable formats (1.0).
+agent in the chat (0.9), then macOS and stable formats (1.0).
 
 ## Contribution
 
@@ -121,11 +121,11 @@ report a vulnerability in a public issue. Use *Report a vulnerability* in the *S
 
 ## License
 
-ManimRS Studio is free software under the [MIT License](LICENSE). The app includes marked (MIT),
+Termina is free software under the [MIT License](LICENSE). The app includes marked (MIT),
 DOMPurify (Apache-2.0 or MPL-2.0), Space Grotesk and IBM Plex Mono (SIL Open Font License 1.1), in
 `frontend/apps/studio/public/`.
 
-ManimRS Studio stands on [Manim Community](https://www.manim.community/) and
+Termina stands on [Manim Community](https://www.manim.community/) and
 [Manim Slides](https://github.com/jeertmans/manim-slides). The
 [3Blue1Brown videos](https://github.com/3b1b/videos) are the model for the example talks,
 [Recordly](https://github.com/webadderallorg/Recordly) for this page and

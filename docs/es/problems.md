@@ -10,7 +10,7 @@ inglés y aparecen aquí tal como los muestra.
 | Mensaje | Causa | Solución |
 | --- | --- | --- |
 | *The app needs the Microsoft Edge WebView2 Runtime* | La ventana de la app es un WebView2. Windows 11 lo trae. Algunos equipos con Windows 10 no. | Instala el [WebView2 Runtime](https://developer.microsoft.com/microsoft-edge/webview2/) y abre la app otra vez. |
-| *Can't find the talks folder* | La app no encontró `manimrs-studio\engine\studio.py`. El `.exe` no está dentro del repositorio, o el repositorio se movió. | Abre la app desde `manimrs-studio\target\release`. Si el `.exe` está en otro lugar, pon en la variable `STUDIO_ROOT` la carpeta de charlas. |
+| *Can't find the talks folder* | La app no encontró `termina\engine\studio.py`. El `.exe` no está dentro del repositorio, o el repositorio se movió. | Abre la app desde `termina\target\release`. Si el `.exe` está en otro lugar, pon en la variable `STUDIO_ROOT` la carpeta de charlas. |
 
 ## La ventana dice «uv is not installed»
 

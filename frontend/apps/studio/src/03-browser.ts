@@ -29,16 +29,33 @@ function paintList() {
   }).join('');
   const f = currentFilter();
   const busy = rendering();
-  let html = '', group = null;
-  for (const s of data.slides.filter(f.test)) {
-    if (s.group !== group) {
-      group = s.group;
-      if (group) html += `<div class="group">${esc(group)}</div>`;
-    }
-    html += row(s, busy.has(s.name));
+  // A group is the slides from one comment of construct() to the next; `line` is its first slide.
+  const groups = [], shut = closedGroups();
+  for (const s of data.slides) {
+    if (s.group !== groups[groups.length - 1]?.name) groups.push({name: s.group, line: s.line, slides: []});
+    if (f.test(s)) groups[groups.length - 1].slides.push(s);
+  }
+  let html = '';
+  for (const g of groups.filter(g => g.slides.length)) {
+    const open = !shut.has(g.name);
+    if (g.name) html += `<button class="group" data-g="${esc(g.name)}" data-line="${g.line}" aria-expanded="${open}"
+      title="${open ? 'Hide' : 'Show'} these slides"><span>${esc(g.name)}</span><b>${g.slides.length}</b></button>`;
+    if (open || !g.name) html += g.slides.map(s => row(s, busy.has(s.name))).join('');
   }
   $('#list').innerHTML = html || `<div class="empty-state"><b>${esc(f.empty[0])}</b>${esc(f.empty[1])}</div>`;
   $('#list .row.active')?.scrollIntoView({block: 'nearest'});
+}
+
+// The groups you closed in this talk, by name.
+function closedGroups(): Set<string> {
+  try { return new Set(JSON.parse(load('studio.closed.' + talk, '[]'))); } catch { return new Set(); }
+}
+
+function toggleGroup(name) {
+  const shut = closedGroups();
+  if (!shut.delete(name)) shut.add(name);
+  save('studio.closed.' + talk, JSON.stringify([...shut]));
+  paintList();
 }
 
 function row(s, inRender) {
@@ -80,6 +97,9 @@ function select(k) {
     sel = k; part = 0; save('studio.sel.' + talk, sel);
     if (k !== openedByClaude) openedByClaude = null;
   }
+  // The slide you go to is never inside a closed group.
+  const group = byKey(k)?.group;
+  if (group && closedGroups().has(group)) toggleGroup(group);
   mode = 'view';
   document.querySelectorAll('.row').forEach(r => {
     const is = r.dataset.k === sel;

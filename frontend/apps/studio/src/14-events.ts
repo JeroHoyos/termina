@@ -6,6 +6,7 @@ $('#talk').onchange = e => {
   const v = e.target.value;
   if (v === '__new') { e.target.value = talk; mode = 'talk'; newTalkDraft = null; paintViewer(true); return; }
   if (v === '__open') { e.target.value = talk; openTalk(); return; }
+  if (v === '__import') { e.target.value = talk; importTalk(); return; }
   changeTalk(v); paintSkeleton(); act(Promise.resolve());
 };
 $('#talk-details').onclick = () => { if (!data) return; mode = 'details'; paintViewer(true); };
@@ -30,6 +31,12 @@ $('#filters').onclick = e => {
   filter = f; listSig = ''; refresh();
 };
 $('#new').onclick = () => { mode = 'new'; paintViewer(true); };
+$('#theme').onclick = () => {
+  const dark = document.documentElement.dataset.theme !== 'dark';
+  document.documentElement.dataset.theme = dark ? 'dark' : '';
+  save('studio.theme', dark ? 'dark' : '');
+};
+$('#find').onclick = () => { mode = 'find'; paintViewer(true); };
 $('#pending').onclick = () => act(invoke('render', {talk, what: 'pending', quality}), 'Queued: render the pending slides');
 $('#present').onclick = () => act(invoke('present', {talk, start: null}), 'Opening the presenter…');
 $('#send-all').onclick = () => {
@@ -58,11 +65,19 @@ exportMenu.querySelector('.menu-list').onclick = e => {
 
 // Browser: select, right-click menu and drag to reorder.
 const list = $('#list');
-list.onclick = e => select((e.target as Element).closest('.row')?.dataset.k);
+list.onclick = e => {
+  const g = (e.target as Element).closest('.group');
+  if (g) toggleGroup(g.dataset.g);
+  else select((e.target as Element).closest('.row')?.dataset.k);
+};
 list.oncontextmenu = e => {
+  const g = (e.target as Element).closest('.group');
+  const first = g && data.slides.find(s => s.line === Number(g.dataset.line));
+  if (first) { e.preventDefault(); openGroupMenu(first, e.clientX, e.clientY); return; }
   const r = (e.target as Element).closest('.row[data-k]');
-  if (!r) return;
+  if (!r && (!current() || (e.target as Element).closest('input'))) return;
   e.preventDefault();
+  if (!r) { openListMenu(current(), e.clientX, e.clientY); return; }
   select(r.dataset.k);
   openSlideMenu(byKey(r.dataset.k), e.clientX, e.clientY);
 };
@@ -144,6 +159,9 @@ $('#viewer').onclick = e => {
       : askNote(),
     'b-image': () => $('#r-file').click(),
     'b-mark': startMark,
+    'b-canvas': startCanvas,
+    'b-save-code': () => act(invoke('source', {talk, line: s.line, text: $('#source').value})
+      .then(() => { $('#b-save-code').disabled = true; }), 'Code saved'),
     'b-send': async () => {
       if (!note) return askNote();
       await invoke('review', {talk, name: s.name, status: 'changes', note}).catch(() => {});
@@ -181,12 +199,14 @@ divider.onpointerdown = e => {
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape') {
     if (mark) { endMark(); return; }
+    if (canvas) { endCanvas(); return; }
     closeSlideMenu(); closeExport(); openLog(false);
     ['#c-history-menu', '#c-settings-menu', '#c-choice-menu'].forEach(s => { $(s).hidden = true; });
     if (!$('#c-palette').hidden) closePalette();
     else if (!$('#c-sheet').hidden && !(e.target as Element).matches('textarea, input')) closeSheet();
     return;
   }
+  if (e.key === 'f' && e.ctrlKey && data) { e.preventDefault(); mode = 'find'; paintViewer(true); return; }
   if ((e.target as Element).closest('#claude') || (e.target as Element).matches('textarea, select, input')) return;
   if (mark) { if (e.key === 'z' && e.ctrlKey) { e.preventDefault(); undoMark(); } return; }
   if (e.key === 'F2') { e.preventDefault(); startRename(); return; }

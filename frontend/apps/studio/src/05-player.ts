@@ -248,6 +248,7 @@ function paintPlayer() {
   b.disabled = !n;
   $('#p-prev').disabled = !n;
   $('#p-next').disabled = !n || part >= n - 1;
+  paintPauseNotes();
   $('#v-pauses').innerHTML = n
     ? `Pause ${part + 1} of ${n}${pieces()[part]?.loop ? '<span class="tag" title="This pause loops when presenting">loops</span>' : ''}`
     : '';

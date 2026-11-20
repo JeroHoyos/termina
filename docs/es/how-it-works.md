@@ -8,8 +8,8 @@
 | --- | --- | --- |
 | Ventana | `frontend/apps/studio/` | TypeScript. `npm run build` en `frontend/` la deja en `dist/`. La app muestra Markdown con `marked` y lo limpia con `DOMPurify`. El reproductor tiene un video por pausa en una sola línea de tiempo. |
 | Claude | `crates/lib/studio_agent/` | Corre `claude -p` con stream-json de entrada y de salida. Es la interfaz del Agent SDK y de las extensiones de los editores. La ventana recibe cada evento y responde las peticiones de permiso, las preguntas y los planes. |
-| MCP | `crates/desktop/manimrs_studio/src/mcp.rs` | Un servidor MCP por HTTP en `127.0.0.1:8766/mcp`. Si ese puerto está ocupado, la app usa otro. |
-| Servidor | `crates/desktop/manimrs_studio/src/server.rs` | También le manda a la ventana los videos y las miniaturas. |
+| MCP | `crates/desktop/termina/src/mcp.rs` | Un servidor MCP por HTTP en `127.0.0.1:8766/mcp`. Si ese puerto está ocupado, la app usa otro. |
+| Servidor | `crates/desktop/termina/src/server.rs` | También le manda a la ventana los videos y las miniaturas. |
 | Trabajos | `crates/lib/studio_engine/src/jobs.rs` | Una cola de renders y exportaciones. Corre un trabajo a la vez, y se puede cancelar. |
 | Puente al motor | `crates/lib/studio_engine/` | Llama a `engine/studio.py`. Busca la carpeta de cada charla en `talks.json`. Guarda el estado de una charla hasta que cambia un archivo suyo. |
 | Sistema | `crates/lib/studio_shell/` | Abre enlaces, carpetas y archivos de ajustes con el sistema. El selector de carpetas es el de Windows, a través de `rfd`. |

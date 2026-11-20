@@ -3,13 +3,13 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>ManimRS Studio</title>
+<title>Termina</title>
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
 <svg width="0" height="0" style="position:absolute" aria-hidden="true">
   <defs>
-    <symbol id="i-brand" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/><path d="M10.5 8v4.5l3.5-2.25z"/></symbol>
+    <symbol id="i-brand" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12.5 3.2a8.6 8.6 0 0 1 0 17.6"/><circle cx="9.3" cy="10.3" r="1.3" fill="currentColor" stroke="none"/><circle cx="17" cy="10.3" r="1.3" fill="currentColor" stroke="none"/><path d="M10.6 14.6c1.6 1.4 4 1.4 5.6 0"/></symbol>
     <symbol id="i-play" viewBox="0 0 24 24"><path d="M7 4.8v14.4a.8.8 0 0 0 1.2.7l11.3-7.2a.8.8 0 0 0 0-1.4L8.2 4.1a.8.8 0 0 0-1.2.7z"/></symbol>
     <symbol id="i-again" viewBox="0 0 24 24"><path d="M3.5 12a8.5 8.5 0 1 0 2.6-6.1"/><path d="M3.5 4v4.5H8"/></symbol>
     <symbol id="i-pause" viewBox="0 0 24 24"><rect x="6" y="4.5" width="4" height="15" rx="1"/><rect x="14" y="4.5" width="4" height="15" rx="1"/></symbol>
@@ -69,11 +69,12 @@
 </svg>
 
 <header>
-  <div class="brand"><svg class="i"><use href="#i-brand"/></svg>ManimRS Studio<span class="version" id="version" title="This is a version before 1.0: the app and its files can change">Pre-release</span></div>
+  <div class="brand"><svg class="i"><use href="#i-brand"/></svg>Termina<span class="version" id="version" title="This is a version before 1.0: the app and its files can change">Pre-release</span></div>
   <select id="talk" aria-label="Talk"></select>
   <button class="btn icon subtle" id="talk-details" title="Talk details" aria-label="Talk details"><svg class="i"><use href="#i-info"/></svg></button>
   <span class="summary" id="summary" title="Slides with an up to date video"></span>
   <span class="spacer"></span>
+  <button class="btn icon subtle" id="theme" title="Light or dark window" aria-label="Light or dark window"><svg class="i"><use href="#i-brand"/></svg></button>
   <span class="field-label" id="quality-label">Resolution</span>
   <div class="segment" id="quality" role="group" aria-labelledby="quality-label"
        title="The talk's resolution: used by the slides that don't have one of their own">
@@ -90,6 +91,9 @@
       <button role="menuitem" data-f="html">HTML folder (.zip)<small>Opens in any browser, nothing to install</small></button>
       <button role="menuitem" data-f="pdf">PDF (.pdf)<small>One page for each pause, at its end</small></button>
       <button role="menuitem" data-f="mp4">Video (.mp4)<small>All the slides in one video, without pauses</small></button>
+      <button role="menuitem" data-f="narrated">Narrated video (.mp4)<small>A voice says the speaker notes of each pause</small></button>
+      <button role="menuitem" data-f="pptx">PowerPoint (.pptx)<small>One page for each pause, with its video</small></button>
+      <button role="menuitem" data-f="package">Talk package (.zip)<small>The talk and its videos, for another Termina</small></button>
       <button role="menuitem" data-f="folder">Open the exports folder</button>
       <hr>
       <button role="menuitem" data-f="all">Render the whole talk<small>Slow: every slide</small></button>
@@ -101,6 +105,7 @@
   <aside aria-label="Slides">
     <div class="list-head">
       <h2>Slides</h2>
+      <button class="btn icon subtle" id="find" aria-label="Find in the slides" title="Find in the slides (Ctrl+F)"><svg class="i"><use href="#i-search"/></svg></button>
       <button class="btn" id="new" title="Add a slide after the selected one"><svg class="i"><use href="#i-plus"/></svg>New</button>
     </div>
     <div class="filters" id="filters" role="tablist" aria-label="Filter slides"></div>

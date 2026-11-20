@@ -6,8 +6,8 @@
 | --- | --- | --- |
 | Window | `frontend/apps/studio/` | TypeScript. `npm run build` in `frontend/` puts it in `dist/`. The app shows Markdown with `marked` and cleans it with `DOMPurify`. The player keeps one video for each pause on one timeline. |
 | Claude | `crates/lib/studio_agent/` | Runs `claude -p` with stream-json for input and output. This is the interface of the Agent SDK and of the editor extensions. The window gets each event and answers permission requests, questions and plans. |
-| MCP | `crates/desktop/manimrs_studio/src/mcp.rs` | An MCP server over HTTP at `127.0.0.1:8766/mcp`. If that port is not free, the app uses a different port. |
-| Server | `crates/desktop/manimrs_studio/src/server.rs` | Also sends the videos and the thumbnails to the window. |
+| MCP | `crates/desktop/termina/src/mcp.rs` | An MCP server over HTTP at `127.0.0.1:8766/mcp`. If that port is not free, the app uses a different port. |
+| Server | `crates/desktop/termina/src/server.rs` | Also sends the videos and the thumbnails to the window. |
 | Jobs | `crates/lib/studio_engine/src/jobs.rs` | A queue of renders and exports. It runs one job at a time, and you can cancel a job. |
 | Engine bridge | `crates/lib/studio_engine/` | Calls `engine/studio.py`. It finds the folder of each talk in `talks.json`. It keeps the status of a talk until a file of the talk changes. |
 | Shell | `crates/lib/studio_shell/` | Opens links, folders and settings files with the Windows shell. The folder dialog comes from Windows, through `rfd`. |

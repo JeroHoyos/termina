@@ -2,7 +2,7 @@
 //
 // The Rust side gives `window.__TAURI__` (see `withGlobalTauri` in tauri.conf.json). The window
 // calls a command with `invoke` and gets the events of the app with `listen`. The commands are in
-// crates/desktop/manimrs_studio/src/commands/.
+// crates/desktop/termina/src/commands/.
 
 interface TauriEvent<T> {
   payload: T;

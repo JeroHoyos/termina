@@ -1,6 +1,6 @@
 # AGENTS.md
 
-ManimRS Studio makes the slides of Manim Slides talks one slide at a time, with Claude. It has a
+Termina makes the slides of Manim Slides talks one slide at a time, with Claude. It has a
 desktop app for Windows and Linux (Rust and Tauri), an engine in Python and a web panel.
 
 ## Code standard
@@ -28,8 +28,8 @@ desktop app for Windows and Linux (Rust and Tauri), an engine in Python and a we
 | `engine/scene.py` | The Manim scene that renders only the selected slides. It runs in the environment of the talk. |
 | `engine/present.py` | The presenter of Manim Slides, with a correct full screen mode. |
 | `engine/panel.html` | The web panel. |
-| `engine/mcp_server.py` | The MCP server for other agents. It gives the same tools as `crates/desktop/manimrs_studio/src/mcp.rs`. Keep the two in step. |
-| `crates/desktop/manimrs_studio/` | The Tauri app: `commands/` (one module for each part of the window), `mcp.rs` (the MCP tools), `server.rs`. |
+| `engine/mcp_server.py` | The MCP server for other agents. It gives the same tools as `crates/desktop/termina/src/mcp.rs`. Keep the two in step. |
+| `crates/desktop/termina/` | The Tauri app: `commands/` (one module for each part of the window), `mcp.rs` (the MCP tools), `server.rs`. |
 | `crates/lib/` | Libraries without Tauri: `studio_engine` (calls to the engine, the job queue), `studio_agent` (the chat), `studio_shell` (links, folders, dialogs). |
 | `frontend/apps/studio/` | The window: HTML, CSS and TypeScript. `frontend/libs/` holds the types that the window and the engine share. |
 | `tests/test_studio.py` | The tests of the engine. |
@@ -47,7 +47,7 @@ cargo build --release              # the app; it takes the window from dist/
 
 - Run Python with `uv run`.
 - Test a change to a talk on a copy in a temporary folder, never on a real talk. Copy the
-  `manimrs-studio/engine/` folder next to the copy, two levels above the talk folder.
+  `termina/engine/` folder next to the copy, two levels above the talk folder.
 - If the app is open, the build cannot replace the `.exe` file. Close the app first.
 
 ## Rules that are easy to break
@@ -56,10 +56,12 @@ cargo build --release              # the app; it takes the window from dist/
 
 - The app calls the engine as a command. Do not change these commands or their JSON output without
   a change to `crates/`:
-  - `talks --json`, `open --json -- <path>`, `new-talk --json … -- <title>`
+  - `talks --json`, `open --json -- <path>`, `new-talk --json … -- <title>`, `import --json --in=<folder> -- <file>`
   - `<talk> info --json`, `<talk> forget`, `<talk> status`, `<talk> list`, `<talk> notes`
   - `<talk> stills --width=1280 -- <slide>`, `<talk> place`, `<talk> render`
-  - the commands that change a talk: `new`, `move`, `rename`, `restore`, `delete`, `resolution`
+  - `<talk> source --line=<n> [--from=<file>]`, `<talk> find [--replace=<text>] [--case] [--word] -- <text>`
+  - `<talk> objects --line=<n>`, `<talk> insert --kind=picture --line=<n> --pause=<n> --at=<x,y> --file=<path>`
+  - the commands that change a talk: `new`, `move`, `rename`, `group`, `duplicate`, `hide`, `restore`, `delete`, `resolution`, `speaker`, `theme`, `move-object`, `retext`, `insert`
 - `test_command_line_contract_of_the_app` in `tests/test_studio.py` keeps part of this contract.
 
 **Tests of the window**
@@ -71,7 +73,9 @@ cargo build --release              # the app; it takes the window from dist/
 
 **Interface**
 
-- Use the light mode of the GRADIENT brand, without its logo. Background Hueso `#f6f6f3`. Cards and
+- Use the GRADIENT brand, without its logo. The light mode is the default. The dark mode has the
+  same tokens with Grafito as the background: change a color in the two modes.
+- In the light mode: Background Hueso `#f6f6f3`. Cards and
   bars white with thin lines. Text and main actions Grafito `#0e1116`. Secondary text Acero
   `#5b616b`. Lines Niebla `#d9dbdf`.
 - Use Azul Gradiente `#2b59ff` only as a signal: focus, progress, timeline, links and selection.

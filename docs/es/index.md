@@ -1,8 +1,8 @@
-# ManimRS Studio
+# Termina
 
 [English](../index.md) | **Español**
 
-ManimRS Studio hace las diapositivas de una charla de
+Termina hace las diapositivas de una charla de
 [Manim Slides](https://github.com/jeertmans/manim-slides) una por una, con Claude. Es una app de
 escritorio para Windows y Linux, un panel web y un conjunto de comandos. Los tres usan el mismo
 motor y los mismos archivos.
@@ -39,6 +39,6 @@ Cada término de esta documentación tiene una sola definición.
 | Diapositiva | Una llamada `self.slide_<nombre>()` en `construct()`. Una diapositiva puede tener una o más pausas. |
 | Pausa | Una parada dentro de una diapositiva, hecha con `next_slide()`. El presentador espera en cada pausa. |
 | Render | Hacer los videos de una diapositiva con Manim. Como sustantivo, los videos que deja un render. |
-| Carpeta de charlas | La carpeta que contiene la carpeta `manimrs-studio`. |
+| Carpeta de charlas | La carpeta que contiene la carpeta `termina`. |
 | Motor | El programa de Python `engine/studio.py`. |
 | App | La app de escritorio de `crates/` (Rust) y `frontend/` (TypeScript). |

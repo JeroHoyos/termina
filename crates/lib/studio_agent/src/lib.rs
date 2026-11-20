@@ -17,7 +17,7 @@ use serde_json::{json, Value};
 
 use studio_engine::{by_lines, exe, home_dir, kill_tree, lock, no_window, on_path, Emit};
 
-const INSTRUCTIONS: &str = "You are inside “ManimRS Studio”, a desktop app: next to this chat the \
+const INSTRUCTIONS: &str = "You are inside “Termina”, a desktop app: next to this chat the \
 user sees the list of slides of their manim talks and the video of each one. To see the status, \
 render, look at and place slides use the tools of the “studio” MCP server (slides, notes, render, \
 view, show, place) instead of the command line. Work one slide at a time: write or edit its file, \

@@ -43,6 +43,35 @@ function startRename() {
   field.onblur = () => setTimeout(() => { if (mode === 'rename') finish(); }, 120);
 }
 
+// True if a group starts at this slide.
+const startsGroup = s => !!s.group && data.slides[data.slides.indexOf(s) - 1]?.group !== s.group;
+
+// A field in the list for the name of the group that starts at `s`: a new group or a new name.
+function startGroup(s) {
+  const before = startsGroup(s) ? s.group : '';
+  if (!before && closedGroups().has(s.group)) toggleGroup(s.group);  // its row has to be in the list
+  const place = (before && $(`#list .group[data-line="${s.line}"]`))
+    || document.querySelector(`.row[data-k="${CSS.escape(key(s))}"]`);
+  if (!place) return;
+  const field = document.createElement('input');
+  Object.assign(field, {type: 'text', className: 'group-name', value: before, placeholder: 'Group name'});
+  field.setAttribute('aria-label', 'Group name');
+  place.classList.contains('group') ? place.replaceWith(field) : place.before(field);
+  field.focus(); field.select();
+  const finish = () => { field.remove(); listSig = ''; paintList(); };
+  field.onkeydown = e => {
+    if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); field.blur(); }
+    if (e.key !== 'Enter') return;
+    e.preventDefault();
+    const name = field.value.trim();
+    field.onblur = null;
+    field.remove();
+    if (name === before) { finish(); return; }
+    attempt(edit(['group', '--line', String(s.line), '--', name], null));
+  };
+  field.onblur = finish;
+}
+
 function deleteSlide(s) {
   if (!confirm(`Delete ${s.name}? It leaves the talk, its videos are deleted, and its file goes to the recycle bin if nothing else uses it`)) return;
   const pos = s.pos;
@@ -65,13 +94,16 @@ function openSlideMenu(s, x, y) {
     null,
     ['new', 'plus', 'New slide after this one'],
     ['duplicate', 'doc', 'Duplicate'],
+    ['group', 'layers', startsGroup(s) ? 'Rename the group' : 'Start a group here'],
     null,
     ['mp4', 'export', 'Export as video (.mp4)', !s.parts?.length],
     ['gif', 'export', 'Export as GIF', !s.parts?.length],
     null,
+    ['hide', 'x', 'Hide from the talk'],
     ['delete', 'trash', 'Delete…', false, 'danger'],
   ] : [
     ['restore', 'again', 'Put it back'],
+    ['group', 'layers', startsGroup(s) ? 'Rename the group' : 'Start a group here'],
     ['delete', 'trash', 'Delete…', false, 'danger'],
   ];
   m.innerHTML = items.map(it => it
@@ -82,6 +114,37 @@ function openSlideMenu(s, x, y) {
   m.querySelector('button:not(:disabled)')?.focus();
 }
 const closeSlideMenu = () => { $('#slide-menu').hidden = true; };
+
+// The menu of a group, with right click on its name; `s` is the slide the group starts at.
+function openGroupMenu(s, x, y) {
+  const m = $('#slide-menu');
+  m.innerHTML = `<button role="menuitem" data-a="newin">${icon('plus')}New slide in this group</button>
+    <hr>
+    <button role="menuitem" data-a="group">${icon('pencil')}Rename the group</button>
+    <button role="menuitem" data-a="ungroup">${icon('trash')}Remove the group, keep its slides</button>`;
+  m.dataset.k = key(s);
+  placeMenu(m, x, y);
+  m.querySelector('button').focus();
+}
+
+// The menu of the empty part of the list: it makes a slide or a group at the selected slide.
+function openListMenu(s, x, y) {
+  const m = $('#slide-menu');
+  m.innerHTML = `<button role="menuitem" data-a="new" ${s.active ? '' : 'disabled'}>${icon('plus')}New slide after ${esc(s.name)}</button>
+    <button role="menuitem" data-a="group">${icon('layers')}${startsGroup(s) ? 'Rename the group' : `Start a group at ${esc(s.name)}`}</button>`;
+  m.dataset.k = key(s);
+  placeMenu(m, x, y);
+  m.querySelector('button:not(:disabled)').focus();
+}
+
+// The last slide of the group that starts at `s`, without the commented-out ones.
+function lastOfGroup(s) {
+  let last = null;
+  for (let i = data.slides.indexOf(s); data.slides[i]?.group === s.group; i++) {
+    if (data.slides[i].active) last = data.slides[i];
+  }
+  return last;
+}
 
 function placeMenu(m, x, y) {
   m.hidden = false;
@@ -99,6 +162,10 @@ function slideAction(action, s) {
       .then(r => { const made = JSON.parse(r); select(made.name); return `Created ${made.name}, a copy of ${s.name}`; })),
     mp4: () => act(invoke('export', {talk, format: 'mp4', slide: s.name}), 'Queued: export'),
     gif: () => act(invoke('export', {talk, format: 'gif', slide: s.name}), 'Queued: export'),
+    newin: () => { const last = lastOfGroup(s); last ? slideAction('new', last) : toast('Put a slide of the group back first'); },
+    group: () => startGroup(s),
+    ungroup: () => attempt(edit(['group', '--line', String(s.line), '--'], null)),
+    hide: () => attempt(edit(['hide', '--line', String(s.line)], x => x.line === s.line)),
     restore: () => attempt(edit(['restore', '--line', String(s.line)], x => x.line === s.line)),
     delete: () => deleteSlide(s),
   };

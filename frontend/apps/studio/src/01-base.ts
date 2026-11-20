@@ -1,4 +1,4 @@
-// ManimRS Studio: the slide browser, the viewer with its review, and the chat with Claude.
+// Termina: the slide browser, the viewer with its review, and the chat with Claude.
 const { invoke } = window.__TAURI__.core;
 const { listen } = window.__TAURI__.event;
 
@@ -16,17 +16,20 @@ const icon = (n, cls = '') => `<svg class="i ${cls}" aria-hidden="true"><use hre
 const toName = t => t.normalize('NFKD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
 
 const QUALITIES = ['480p', '720p', '1080p'];
-const PENDING = new Set(['new', 'changed', 'transition', 'resolution']);
+const PENDING = new Set(['new', 'changed', 'transition', 'resolution', 'number']);
+// The colors of the window: light, or dark if you chose it.
+document.documentElement.dataset.theme = load('studio.theme', '');
 const LABEL = {
   up_to_date: 'up to date', new: 'not rendered', changed: 'changed', transition: 'previous slide changed',
-  shared: 'shared code changed', resolution: 'different resolution', out: 'commented out',
+  shared: 'shared code changed', resolution: 'different resolution', number: 'page number changed', out: 'commented out',
 };
 const EXPLAIN = {
   new: () => 'Not rendered yet',
   changed: () => 'Changed since the last render',
   transition: s => `The previous slide (${s.previous || 'none'}) changed, so its entrance is outdated`,
   shared: () => 'Shared code (style, components…) changed since its render, it may look different',
-  resolution: s => `It is at ${s.quality} and you want it at ${s.resolution}`,
+  resolution: s => `It is at ${s.quality} and you want it at ${s.resolution || quality}`,
+  number: () => 'Its page number changed since the render',
   up_to_date: () => 'The video is up to date',
 };
 const REVIEW = {

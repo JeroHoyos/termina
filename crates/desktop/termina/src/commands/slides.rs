@@ -8,8 +8,15 @@ use studio_engine::{check_talk, QUALITIES};
 use crate::{in_thread, St};
 
 /// The formats of an export, and the option of studio.py for each one.
-const EXPORTS: [(&str, &[&str]); 4] =
-    [("html", &[]), ("pdf", &["--pdf"]), ("mp4", &["--mp4"]), ("gif", &["--gif"])];
+const EXPORTS: [(&str, &[&str]); 7] = [
+    ("narrated", &["--narrated"]),
+    ("html", &[]),
+    ("pdf", &["--pdf"]),
+    ("mp4", &["--mp4"]),
+    ("gif", &["--gif"]),
+    ("pptx", &["--pptx"]),
+    ("package", &["--package"]),
+];
 
 #[tauri::command]
 pub async fn status(s: St<'_>, talk: String) -> Result<Value, String> {
@@ -59,11 +66,14 @@ pub fn render(s: St<'_>, talk: String, what: Value, quality: String) -> Result<(
     Ok(())
 }
 
-/// Changes to the talk: new, move, rename, duplicate, restore, delete and resolution. Returns what
-/// studio.py answered (for “new” and “duplicate”, a JSON with the created slide).
+/// Changes to the talk: new, move, rename, group, duplicate, hide, restore, delete, resolution and
+/// the speaker notes. Returns what studio.py answered (for “new” and “duplicate”, a JSON with the created slide).
 #[tauri::command]
 pub async fn edit(s: St<'_>, talk: String, args: Vec<String>) -> Result<String, String> {
-    const ORDERS: [&str; 7] = ["new", "move", "rename", "duplicate", "restore", "delete", "resolution"];
+    const ORDERS: [&str; 14] = [
+        "new", "move", "rename", "group", "duplicate", "hide", "restore", "delete", "resolution", "speaker",
+        "theme", "move-object", "retext", "insert",
+    ];
     check_talk(&talk)?;
     if !args.first().is_some_and(|o| ORDERS.contains(&o.as_str())) {
         return Err("That order does not exist".into());
@@ -77,12 +87,102 @@ pub async fn edit(s: St<'_>, talk: String, args: Vec<String>) -> Result<String, 
     .await
 }
 
-/// Exports the talk (HTML, PDF or MP4) or, with `slide`, one slide (MP4 or GIF).
+/// The code of the slide at `line` of main.py, as `{text}`. With `text`, replaces it first: the
+/// engine refuses code with a syntax error.
+#[tauri::command]
+pub async fn source(s: St<'_>, talk: String, line: u32, text: Option<String>) -> Result<Value, String> {
+    check_talk(&talk)?;
+    let e = s.engine.clone();
+    in_thread(move || {
+        let mut args = vec![talk, "source".to_string(), format!("--line={line}")];
+        // The new code goes in a file: a command line is too short for it.
+        let file = std::env::temp_dir().join(format!("termina-source-{}.py", std::process::id()));
+        if let Some(text) = text {
+            std::fs::write(&file, text).map_err(|e| e.to_string())?;
+            args.push(format!("--from={}", file.display()));
+        }
+        let answer = e.json(args);
+        std::fs::remove_file(&file).ok();
+        answer
+    })
+    .await
+}
+
+/// What the render of the slide at `line` shows on each pause, as `{pauses, frame, fresh}`.
+#[tauri::command]
+pub async fn objects(s: St<'_>, talk: String, line: u32) -> Result<Value, String> {
+    check_talk(&talk)?;
+    let e = s.engine.clone();
+    in_thread(move || e.json([talk, "objects".to_string(), format!("--line={line}")])).await
+}
+
+/// Asks for a picture and adds it to the slide at `line`, on `pause`, at `at` (“x,y”). Returns
+/// what the engine answered, or nothing if the dialog was closed.
+#[tauri::command]
+pub async fn insert_picture(
+    s: St<'_>,
+    window: tauri::WebviewWindow,
+    talk: String,
+    line: u32,
+    pause: u32,
+    at: String,
+) -> Result<Option<String>, String> {
+    check_talk(&talk)?;
+    let e = s.engine.clone();
+    in_thread(move || {
+        let picked = studio_shell::pick_file(&window, "Choose a picture", "Pictures", &["png", "jpg", "jpeg"])?;
+        let Some(file) = picked else { return Ok(None) };
+        let args = [
+            talk,
+            "insert".to_string(),
+            "--kind=picture".into(),
+            format!("--line={line}"),
+            format!("--pause={pause}"),
+            format!("--at={at}"),
+            format!("--file={}", file.display()),
+        ];
+        e.text(args).map(|t| Some(t.trim().to_string()))
+    })
+    .await
+}
+
+/// Finds text in the slides and the speaker notes, as `{matches, replaced}`. With `replace`,
+/// replaces each match.
+#[tauri::command]
+pub async fn find(
+    s: St<'_>,
+    talk: String,
+    query: String,
+    replace: Option<String>,
+    case: bool,
+    word: bool,
+) -> Result<Value, String> {
+    check_talk(&talk)?;
+    let e = s.engine.clone();
+    in_thread(move || {
+        let mut args = vec![talk, "find".to_string()];
+        if let Some(r) = replace {
+            args.push(format!("--replace={r}"));
+        }
+        if case {
+            args.push("--case".into());
+        }
+        if word {
+            args.push("--word".into());
+        }
+        // After “--” everything is the text to find, even if it starts with a dash.
+        args.extend(["--".into(), query]);
+        e.json(args)
+    })
+    .await
+}
+
+/// Exports the talk (HTML, PDF, MP4, PowerPoint or its package) or, with `slide`, one slide (MP4 or GIF).
 #[tauri::command]
 pub fn export(s: St<'_>, talk: String, format: String, slide: Option<String>) -> Result<(), String> {
     check_talk(&talk)?;
     let Some((_, option)) = EXPORTS.iter().find(|(name, _)| *name == format) else {
-        return Err("The export is HTML, PDF, MP4 or GIF".into());
+        return Err("The export is HTML, PDF, MP4, GIF, PowerPoint, a narrated video or a package".into());
     };
     let mut args = vec![talk.clone(), "export".to_string()];
     args.extend(option.iter().map(|o| o.to_string()));

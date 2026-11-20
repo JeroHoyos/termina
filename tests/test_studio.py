@@ -148,6 +148,18 @@ def test_plan_groups_and_repetitions(talk):
     assert studio.file_map(talk.pres)["slide_title"].name == "title.py"
 
 
+def test_group_starts_renames_and_goes(talk):
+    studio.set_group(talk, slide(talk, "closing"), "Part  two")
+    assert [s.group for s in studio.read_plan(talk)] == ["", "Part two"]
+    studio.set_group(talk, slide(talk, "closing"), "The end")
+    assert [s.group for s in studio.read_plan(talk)] == ["", "The end"]
+    with pytest.raises(RuntimeError, match="slide call"):
+        studio.set_group(talk, slide(talk, "closing"), "self.slide_title()")
+    studio.set_group(talk, slide(talk, "closing"), "")
+    assert [s.group for s in studio.read_plan(talk)] == ["", ""]
+    assert names(talk) == ["title", "closing"]
+
+
 def test_status_kinds(talk):
     assert statuses(talk) == {"title": "new", "closing": "new"}
     fake_render(talk)
@@ -308,6 +320,230 @@ def test_restore(talk):
     assert names(talk) == ["title", "closing"]
 
 
+def test_hide_keeps_the_renders_for_restore(talk):
+    fake_render(talk)
+    studio.hide(talk, slide(talk, "closing"))
+    assert names(talk) == ["title"]
+    assert "already" in studio.hide(talk, slide(talk, "closing"))
+    studio.restore(talk, slide(talk, "closing"))
+    assert statuses(talk) == {"title": "up_to_date", "closing": "up_to_date"}
+
+
+def test_hide_a_repetition_moves_the_renders_of_the_next(talk):
+    studio.place(talk, "title", slide(talk, "closing"))
+    fake_render(talk)
+    studio.hide(talk, slide(talk, "title"))
+    assert names(talk) == ["closing", "title"]
+    assert talk.path("title.json").exists() and not talk.path("title-2.json").exists()
+
+
+def test_speaker_notes_follow_the_slide_and_go_into_its_render(talk):
+    speaker = lambda: {r["name"]: r["speaker"] for r in studio.talk_status(talk)["slides"]}  # noqa: E731
+    studio.rename(talk, slide(talk, "title"), "cover")
+    assert not (talk.pres / studio.SPEAKER_FILE).exists()
+    studio.set_speaker(talk, slide(talk, "cover"), " Say hello\nthen wait ")
+    fake_render(talk)
+    assert statuses(talk)["cover"] == "up_to_date"
+    studio.rename(talk, slide(talk, "cover"), "start")
+    assert speaker() == {"start": "Say hello\nthen wait", "closing": ""}
+    studio._apply_speaker(talk, ["start", "closing"])
+    assert studio.read_json(talk.path("start.json"), {})["slides"][0]["notes"] == "Say hello\nthen wait"
+    studio.set_speaker(talk, slide(talk, "start"), "")
+    studio._apply_speaker(talk, ["start"])
+    assert studio.read_json(talk.path("start.json"), {})["slides"][0]["notes"] == ""
+    studio.set_speaker(talk, slide(talk, "closing"), "Bye")
+    studio.delete(talk, slide(talk, "closing"))
+    assert studio.read_json(talk.pres / studio.SPEAKER_FILE, None) == {}
+
+
+def test_package_has_the_code_and_the_renders_only(talk):
+    import zipfile
+    fake_render(talk)
+    (talk.pres / ".venv").mkdir()
+    (talk.pres / ".venv" / "big.bin").write_bytes(b"x")
+    talk.path("_stills/title").mkdir(parents=True)
+    talk.path("_stills/title/pause_1.png").write_bytes(b"x")
+    file = studio.export(talk, "package", log=lambda *_: None)
+    studio.export(talk, "package", log=lambda *_: None)  # the old package does not go into the new one
+    with zipfile.ZipFile(file) as z:
+        inside = {n.split("/", 1)[1] for n in z.namelist()}
+    assert {"main.py", "talk.manimrs", "diapositivas/title.py", "diapos/title.json",
+            "diapos/files/title/0.mp4", "diapos/_renders.json"} <= inside
+    assert not [n for n in inside if n.startswith((".venv", "diapos/exported", "diapos/_stills"))]
+
+
+def test_pptx_export_asks_manim_slides_for_the_size_of_the_talk(talk, monkeypatch):
+    fake_render(talk)
+    calls = []
+    monkeypatch.setattr(studio, "_convert", lambda t, cmd, log: (calls.append(cmd), Path(cmd[-4]).write_bytes(b"p")))
+    file = studio.export(talk, "pptx", log=lambda *_: None)
+    assert file.name == f"{talk.id}.pptx"
+    assert calls[0][-3:] == ["--to=pptx", "-cwidth=1920", "-cheight=1080"]
+
+
+def test_source_shows_the_code_and_refuses_code_with_an_error(talk):
+    file = talk.pres / "diapositivas" / "title.py"
+    file.write_bytes(file.read_bytes().replace(b"\n", b"\r\n"))
+    text = studio.source(talk, slide(talk, "title"))["text"]
+    assert "def build(scene):" in text and "\r" not in text
+    with pytest.raises(RuntimeError, match="line 1"):
+        studio.source(talk, slide(talk, "title"), "def build(:\n")
+    studio.source(talk, slide(talk, "title"), text + "# mine\n")
+    assert file.read_bytes().endswith(b"# mine\r\n")
+
+
+def test_find_and_replace_only_in_the_text_of_the_slides(talk):
+    file = talk.pres / "diapositivas" / "title.py"
+    file.write_text('"""Docker is not here."""\nTITLE = "Docker and docker"\ndocker = f"my {TITLE} Docker"\n', "utf-8")
+    studio.set_speaker(talk, slide(talk, "closing"), "Say Docker")
+    found = studio.find(talk, "docker", case=True)
+    assert [(m["slide"], m["line"], m["notes"]) for m in found["matches"]] == [("title", 2, False)]
+    assert len(studio.find(talk, "Docker")["matches"]) == 4 and "Docker and" in file.read_text("utf-8")
+    assert studio.find(talk, "Docker", "Podman", case=True, word=True)["replaced"] == 3
+    assert file.read_text("utf-8").splitlines()[1:] == ['TITLE = "Podman and docker"',
+                                                        'docker = f"my {TITLE} Podman"']
+    assert studio.talk_status(talk)["slides"][1]["speaker"] == "Say Podman"
+    with pytest.raises(RuntimeError, match="breaks the code"):
+        studio.find(talk, "Podman", 'a "quote')
+    assert "Podman and" in file.read_text("utf-8")
+
+
+def pptx(path, pages):
+    """A PowerPoint file with the least that the import reads. A page is (title, body, notes)."""
+    import zipfile
+    ns = ('xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" '
+          'xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main" '
+          'xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"')
+    box = lambda kind, text, extra="": (  # noqa: E731
+        f'<p:sp><p:nvSpPr><p:nvPr><p:ph type="{kind}"/></p:nvPr></p:nvSpPr><p:spPr>{extra}</p:spPr>'
+        f'<p:txBody><a:p><a:r><a:rPr sz="2400"/><a:t>{text}</a:t></a:r></a:p></p:txBody></p:sp>')
+    rels = lambda items: "<Relationships>" + "".join(  # noqa: E731
+        f'<Relationship Id="{i}" Type="http://x/{kind}" Target="{target}"/>' for i, kind, target in items
+    ) + "</Relationships>"
+    place = '<a:xfrm><a:off x="0" y="0"/><a:ext cx="6096000" cy="3429000"/></a:xfrm>'
+    with zipfile.ZipFile(path, "w") as z:
+        z.writestr("ppt/presentation.xml", f'<p:presentation {ns}><p:sldIdLst>' + "".join(
+            f'<p:sldId r:id="r{n}"/>' for n in range(len(pages))
+        ) + '</p:sldIdLst><p:sldSz cx="12192000" cy="6858000"/></p:presentation>')
+        z.writestr("ppt/_rels/presentation.xml.rels",
+                   rels((f"r{n}", "slide", f"slides/slide{n}.xml") for n in range(len(pages))))
+        for n, (title, body, notes) in enumerate(pages):
+            z.writestr(f"ppt/slides/slide{n}.xml", f'<p:sld {ns}><p:cSld><p:spTree>{box("title", title)}'
+                       f'{box("body", body, place)}{box("sldNum", "7")}<p:pic><p:blipFill><a:blip r:embed="p"/>'
+                       f'</p:blipFill><p:spPr>{place}</p:spPr></p:pic></p:spTree></p:cSld></p:sld>')
+            z.writestr(f"ppt/slides/_rels/slide{n}.xml.rels", rels([
+                ("p", "image", "../media/a.png"), ("n", "notesSlide", f"../notesSlides/n{n}.xml")]))
+            z.writestr(f"ppt/notesSlides/n{n}.xml", f'<p:notes {ns}>{box("body", notes)}</p:notes>')
+        z.writestr("ppt/media/a.png", b"png")
+
+
+def test_import_pptx_makes_a_slide_for_each_page(talk, tmp_path):
+    pptx(tmp_path / "deck.pptx", [("Docker día 1", "What it is", "Say hello"), ("Docker día 1", "More", "")])
+    made = studio.import_talk(tmp_path / "deck.pptx", tmp_path, "imported")
+    assert made.title == "Docker día 1" and names(made) == ["docker_dia_1", "docker_dia_1_2"]
+    code = (made.pres / "diapositivas" / "docker_dia_1.py").read_text("utf-8")
+    compile(code, "slide", "exec")
+    assert '["What it is", 27, -3.56, 2.0, 7.11]' in code and '["Docker día 1", 27, 0, 3, 12]' in code
+    assert '"7"' not in code and '["pptx/page1_1.png", -3.56, 2.0, 7.11]' in code
+    assert (made.pres / "pptx" / "page1_1.png").read_bytes() == b"png"
+    assert studio.read_json(made.pres / studio.SPEAKER_FILE, {}) == {"docker_dia_1": "Say hello"}
+    (tmp_path / "bad.pptx").write_bytes(b"no")
+    with pytest.raises(RuntimeError, match="not a PowerPoint"):
+        studio.import_talk(tmp_path / "bad.pptx", tmp_path)
+
+
+def test_pause_notes_go_after_the_notes_of_the_slide(talk):
+    fake_render(talk)
+    studio.set_speaker(talk, slide(talk, "title"), "Hello")
+    studio.set_speaker(talk, slide(talk, "title"), "Then this", pause=1)
+    studio.rename(talk, slide(talk, "title"), "cover")
+    assert studio.talk_status(talk)["slides"][0]["pause_notes"] == {"1": "Then this"}
+    studio._apply_speaker(talk, ["cover"])
+    assert studio.read_json(talk.path("cover.json"), {})["slides"][0]["notes"] == "Hello\n\nThen this"
+    studio.delete(talk, slide(talk, "cover"))
+    assert studio.read_json(talk.pres / studio.SPEAKER_FILE, None) == {}
+
+
+def test_page_numbers_make_a_moved_slide_pending(talk):
+    fake_render(talk)
+    studio.save_project(talk, {"numbers": "on"})
+    assert statuses(talk) == {"title": "number", "closing": "number"}
+    fake_render(talk)
+    assert set(statuses(talk).values()) == {"up_to_date"}
+    with pytest.raises(RuntimeError, match="on or off"):
+        studio.save_project(talk, {"numbers": "yes"})
+
+
+def test_theme_changes_the_colors_of_the_style(talk):
+    assert studio.theme_of(talk) == "dark"
+    studio.set_theme(talk, "paper")
+    assert studio.theme_of(talk) == "paper" and 'ACCENT = "#b4532a"' in (talk.pres / "style.py").read_text("utf-8")
+    (talk.pres / "style.py").write_text("X = 1\n", "utf-8")
+    assert studio.theme_of(talk) is None
+    with pytest.raises(RuntimeError, match="own code"):
+        studio.set_theme(talk, "light")
+
+
+def test_move_retext_and_insert_change_the_code_of_the_slide(talk):
+    studio.new_slide(talk, "ideas", slide(talk, "title"))
+    file = talk.pres / "diapositivas" / "ideas.py"
+    lines = file.read_text("utf-8").splitlines()
+    made = next(i for i, l in enumerate(lines, 1) if l.strip().startswith("title = Text("))
+    loop = next(i for i, l in enumerate(lines, 1) if l.strip().startswith("text = Text(point"))
+    fake_render(talk)
+    shown = [{"kind": "text", "text": "ideas", "at": ["diapositivas/ideas.py", made], "parent": None},
+             {"kind": "group", "text": "", "at": None, "parent": None},
+             {"kind": "text", "text": "First idea", "at": ["diapositivas/ideas.py", loop], "parent": 1}]
+    studio.write_json(talk.path("_objects/ideas.json"), {"pauses": [shown]})
+    with pytest.raises(RuntimeError, match="inside other code"):
+        studio.move_object(talk, slide(talk, "ideas"), 0, 2, 1, 1)
+    studio.move_object(talk, slide(talk, "ideas"), 0, 0, 1.5, -0.25)
+    with pytest.raises(RuntimeError, match="Render the slide first"):
+        studio.move_object(talk, slide(talk, "ideas"), 0, 0, 1, 1)
+    fake_render(talk)
+    studio.move_object(talk, slide(talk, "ideas"), 0, 0, 0.5, 0.25)
+    code = file.read_text("utf-8")
+    assert code.count("# termina") == 1
+    assert "    title.shift((2.00, 0.00, 0))  # termina\n    scene.play(FadeIn(title" in code
+    studio.retext(talk, slide(talk, "ideas"), "First idea", 'La "primera" idea')
+    with pytest.raises(RuntimeError, match="different way"):
+        studio.retext(talk, slide(talk, "ideas"), "Not there", "x")
+    studio.insert(talk, slide(talk, "ideas"), "sphere", 0, 2, -1.5)
+    code = file.read_text("utf-8")
+    compile(code, "ideas", "exec")
+    assert '"La \\"primera\\" idea"' in code and "Text, VGroup, Sphere\n" in code
+    assert ("    added_1 = Sphere(radius=1).move_to((2.00, -1.50, 0))  # termina\n"
+            "    scene.play(FadeIn(added_1), run_time=0.4)  # termina\n    scene.next_slide()") in code
+
+
+def test_import_beamer_makes_a_slide_for_each_frame(talk, tmp_path):
+    (tmp_path / "fig.png").write_bytes(b"png")
+    (tmp_path / "deck.tex").write_text(r"""
+\title{Redes}
+\begin{document}
+\begin{frame}\titlepage\end{frame}
+\begin{frame}{Qué es}  % a comment
+  Una \textbf{red} aprende.
+  \begin{itemize}
+    \item Capas \pause
+    \item Pesos
+  \end{itemize}
+  \[ y = wx + b \]
+  \includegraphics[width=3cm]{fig}
+  \note{Explicar despacio}
+\end{frame}
+\end{document}""", "utf-8")
+    made = studio.import_talk(tmp_path / "deck.tex", tmp_path, "beamer")
+    assert made.title == "Redes" and names(made) == ["redes", "que_es"]
+    code = (made.pres / "diapositivas" / "que_es.py").read_text("utf-8")
+    compile(code, "slide", "exec")
+    assert 'TITLE = "Qué es"' in code
+    assert ('STEPS = [[["text", "Una red aprende."], ["item", "Capas"]], [["item", "Pesos"], '
+            '["formula", "y = wx + b"], ["picture", "beamer/fig.png"]]]') in code
+    assert (made.pres / "beamer" / "fig.png").exists()
+    assert studio.read_json(made.pres / studio.SPEAKER_FILE, {}) == {"que_es": "Explicar despacio"}
+
+
 def test_delete_a_repetition_then_the_slide(talk):
     studio.place(talk, "title", slide(talk, "closing"))
     fake_render(talk)
@@ -336,12 +572,13 @@ def test_render_lock(talk):
     lock.parent.mkdir(parents=True, exist_ok=True)
     lock.write_text(str(os.getpid()))
     said = []
-    with studio.RenderLock(talk, said.append):
+    with studio.RenderLock(talk, said.append, "3 slide(s) at 480p"):
         second = threading.Thread(target=lambda: studio.RenderLock(talk, said.append).__enter__().__exit__())
         second.start()
         time.sleep(0.5)
         assert second.is_alive(), "a second render must wait for the first one"
-        assert said == ["Another render of this talk is running, waiting for it to finish…"]
+        assert len(said) == 1 and said[0].startswith(
+            "Another render of this talk is running (3 slide(s) at 480p since ")
     second.join(5)
     assert not second.is_alive(), "it must start when the first one ends"
 
@@ -412,7 +649,7 @@ def test_command_line(talk, capsys):
 
 
 def test_command_line_contract_of_the_app(talk, capsys, tmp_path):
-    """The exact calls of crates/desktop/manimrs_studio/src/commands/: their arguments and JSON must not change."""
+    """The exact calls of crates/desktop/termina/src/commands/: their arguments and JSON must not change."""
     def call(*argv):
         studio.main(list(argv))
         return json.loads(capsys.readouterr().out)

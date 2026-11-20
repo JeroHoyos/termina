@@ -1,7 +1,7 @@
 """Slide studio: renders, reviews, presents and exports the talks one slide at a time.
 
-Run it with the `studio.cmd` launcher in `manimrs-studio/` (or, from the talks folder, with
-`uv run --no-project manimrs-studio/engine/studio.py ...`):
+Run it with the `studio.cmd` launcher in `termina/` (or, from the talks folder, with
+`uv run --no-project termina/engine/studio.py ...`):
 
     studio                                  opens the panel in the browser
     studio talks                            lists the talks, with the folder of each one
@@ -26,7 +26,18 @@ Run it with the `studio.cmd` launcher in `manimrs-studio/` (or, from the talks f
     studio <talk> place slide_x [--after <slide>]       places an already registered slide
     studio <talk> move <slide> --after <slide>          or --first
     studio <talk> rename <slide> "new name"             its renders are renamed too
+    studio <talk> group <slide> ["name"]                starts a group at the slide, or removes it
+    studio <talk> hide <slide>                          comments out a slide in main.py
     studio <talk> restore <slide>                       uncomments a slide in main.py
+    studio <talk> speaker <slide> ["text"]              its speaker notes; without text, removes them
+    studio <talk> source <slide> [--from <file>]        the code of a slide as JSON, or replaces it
+    studio <talk> find "text" [--replace "text"]        finds text in the slides and the speaker notes
+    studio <talk> theme [<name>]                        the colors of the slides
+    studio <talk> objects <slide>                       what a rendered slide shows, as JSON
+    studio <talk> move-object <slide> --pause N --index I --by=dx,dy
+    studio <talk> retext <slide> "old" "new"            changes a text of a slide in its code
+    studio <talk> insert <slide> --kind text --pause N --at=x,y   adds an element to a slide
+    studio import <file>                                makes a talk from PowerPoint (.pptx) or Beamer (.tex)
     studio <talk> delete <slide>                        its file goes to the recycle bin
     studio <talk> resolution <slide> 480p|720p|1080p|default
 
@@ -34,7 +45,7 @@ Render option: --quality 480p|720p|1080p (the talk's resolution by default).
 
 A talk is the folder with its main.py, wherever it is: `presentacion/` in the older talks, the
 talk's own folder in the ones made by the Studio. The Studio remembers which ones it knows in
-`manimrs-studio/talks.json`, and each talk keeps what it is (title, what it is about, language,
+`termina/talks.json`, and each talk keeps what it is (title, what it is about, language,
 resolution) in its `talk.manimrs`, next to its main.py.
 
 <talk> is the name `talks` gives it (charla-claude), or that name without the prefix (claude).
@@ -45,8 +56,8 @@ rendering one slide never deletes or redoes the others.
 import sys
 
 if sys.version_info < (3, 10):  # before the other imports: an older Python fails on the syntax below
-    raise SystemExit("ManimRS Studio needs Python 3.10 or newer, run it with uv: "
-                     "uv run --no-project manimrs-studio/engine/studio.py")
+    raise SystemExit("Termina needs Python 3.10 or newer, run it with uv: "
+                     "uv run --no-project termina/engine/studio.py")
 
 import argparse
 import ast
@@ -72,7 +83,7 @@ from urllib.parse import parse_qs, unquote, urlparse
 # they added about 50 ms to every start.
 
 HERE = Path(__file__).resolve().parent
-# The talks folder: this file lives in <talks>/manimrs-studio/engine/.
+# The talks folder: this file lives in <talks>/termina/engine/.
 ROOT = HERE.parent.parent
 SCENE = HERE / "scene.py"
 PANEL = HERE / "panel.html"
@@ -82,7 +93,9 @@ REGISTRY = HERE.parent / "talks.json"
 REGISTRY_LOCK = HERE.parent / ".talks.lock"
 # Each talk's own file with what it is. JSON, so the app, the panel and Claude read it alike.
 PROJECT_FILE = "talk.manimrs"
-PROJECT_FIELDS = {"title": "", "about": "", "author": "", "language": "es", "resolution": "1080p"}
+SPEAKER_FILE = "speaker-notes.json"
+PROJECT_FIELDS = {"title": "", "about": "", "author": "", "language": "es", "resolution": "1080p",
+                  "numbers": "off"}
 LANGUAGE = re.compile(r"[a-z]{2,3}(-[A-Za-z]{2,4})?")
 # Folder names of the talks' own format: every talk keeps its code in presentacion/ and its slide
 # modules in presentacion/diapositivas/. The renders folder keeps the name "diapos" because the
@@ -100,9 +113,10 @@ LABELS = {
     "transition": "previous slide changed",
     "shared": "shared code changed",
     "resolution": "different resolution",
+    "number": "page number changed",
     "out": "commented out",
 }
-PENDING = {"new", "changed", "transition", "resolution"}
+PENDING = {"new", "changed", "transition", "resolution", "number"}
 NOT_SHARED = {".venv", "media", "slides", RENDERS, "__pycache__", ".ruff_cache",
               ".complexipy_cache", ".git"}
 
@@ -358,6 +372,8 @@ def _clean_field(k: str, v) -> str:
         raise RuntimeError("The talk needs a title")
     if k == "resolution" and v not in QUALITIES:
         raise RuntimeError("The resolution is 480p, 720p or 1080p")
+    if k == "numbers" and v not in ("on", "off"):
+        raise RuntimeError("The page numbers are on or off")
     if k == "language" and not LANGUAGE.fullmatch(v):
         raise RuntimeError("The language is a code like es or en")
     return v[:4000]
@@ -657,6 +673,11 @@ def parts(talk: Talk, name: str) -> list[dict]:
     ]
 
 
+def _page(talk: Talk, s: Slide) -> str:
+    """The page number that the render of a slide must show: empty if the talk has none."""
+    return str(s.pos) if project_info(talk)["numbers"] == "on" else ""
+
+
 def _status(talk: Talk, s: Slide, r: dict | None, shared: str, wanted: str) -> str:
     """Why the slide must be rendered again (a key of LABELS), or up_to_date. `r` is its line in
     _renders.json, `wanted` the resolution it must have: its own, or else the talk's."""
@@ -668,6 +689,8 @@ def _status(talk: Talk, s: Slide, r: dict | None, shared: str, wanted: str) -> s
         return "changed"
     if (r["previous"], r["previous_hash"]) != (s.previous, s.previous_hash):
         return "transition"
+    if r.get("page", "") != _page(talk, s):
+        return "number"
     if r["shared_hash"] != shared:
         return "shared"
     return "up_to_date" if r["quality"] == wanted else "resolution"
@@ -686,6 +709,7 @@ def talk_status(talk: Talk) -> dict:
     renders = read_json(talk.path("_renders.json"), {})
     reviews = read_json(talk.path("_reviews.json"), {})
     preferred = read_json(talk.path("_resolutions.json"), {})
+    speaker = read_json(talk.pres / SPEAKER_FILE, {})
     shared = shared_fingerprint(talk, plan)
     default = talk.resolution
     rows = []
@@ -696,10 +720,11 @@ def talk_status(talk: Talk) -> dict:
         done = r or {}
         rows.append({**asdict(s), "status": status, "label": LABELS[status],
                      "quality": done.get("quality"), "rendered_at": done.get("date"),
-                     "resolution": wanted, "review": _review(reviews, s)})
+                     "resolution": wanted, "review": _review(reviews, s),
+                     **_speaker_of(speaker if s.active else {}, s.name)})
     project = project_info(talk)
     return {"id": talk.id, "title": project["title"], "path": str(talk.pres), "project": project,
-            "resolution": project["resolution"], "slides": rows}
+            "resolution": project["resolution"], "slides": rows, "theme": theme_of(talk)}
 
 
 def file_url(talk: Talk, p: Path) -> str:
@@ -772,9 +797,19 @@ class RenderLock(_DataLock):
     killed. (A lock file with a process id stayed after a kill, and Windows gives that id to new
     processes: the next render waited forever.)"""
 
-    def __init__(self, talk: Talk, log):
+    def __init__(self, talk: Talk, log, what=""):
         super().__init__(talk.path("_render.lock"))
-        self.log = log
+        self.log, self.what = log, what
+
+    def _holder(self) -> str:
+        """What the render that holds the lock said it is. The lock is on the first byte only, so
+        the text after it can be read."""
+        try:
+            with open(self.p, "rb", buffering=0) as f:
+                f.seek(1)
+                return f.read(200).decode("utf-8", "replace")
+        except OSError:
+            return ""
 
     def __enter__(self):
         self.p.parent.mkdir(parents=True, exist_ok=True)
@@ -783,10 +818,15 @@ class RenderLock(_DataLock):
         while True:
             try:
                 self._lock()
+                self.f.truncate(0)
+                self.f.write(("\n" + f"{self.what} since {time.strftime('%H:%M')}".strip()).encode())
+                self.f.flush()
                 return self
             except OSError:
                 if not warned:
-                    self.log("Another render of this talk is running, waiting for it to finish…")
+                    holder = self._holder()
+                    self.log("Another render of this talk is running" + (f" ({holder})" if holder else "")
+                             + ", waiting for it to finish…")
                     warned = True
                 time.sleep(2)
 
@@ -861,7 +901,8 @@ def _render_at(talk: Talk, targets: list[Slide], quality: str, log, on_start) ->
     wanted = {str(s.index): {"method": s.method, "name": s.name} for s in targets}
     cmd = ["uv", "run", "python", "-m", "manim_slides", "render", "--quality",
            QUALITIES[quality], "--progress_bar", "none", str(SCENE), "Slides"]
-    env = _env(STUDIO_TARGETS=json.dumps(wanted), STUDIO_TALK=str(talk.pres))
+    env = _env(STUDIO_TARGETS=json.dumps(wanted), STUDIO_TALK=str(talk.pres),
+               STUDIO_NUMBERS=project_info(talk)["numbers"])
     saved = []
 
     def progress(text):
@@ -874,7 +915,7 @@ def _render_at(talk: Talk, targets: list[Slide], quality: str, log, on_start) ->
             saved.append(s.name)
         log(text)
 
-    with RenderLock(talk, log):
+    with RenderLock(talk, log, f"{len(targets)} slide(s) at {quality}"):
         if not (talk.pres / ".venv").exists():
             log("Setting up the talk's Python, the first time takes a few minutes…")
         log(f"Rendering {len(targets)} slide(s) of {talk.id} at {quality}…")
@@ -901,7 +942,8 @@ def _record(talk: Talk, done: list[Slide], shared: str, quality: str):
         for s in done:
             renders[s.name] = {"method": s.method, "file": s.file, "hash": s.hash,
                                "previous": s.previous, "previous_hash": s.previous_hash,
-                               "shared_hash": shared, "quality": quality, "date": now}
+                               "shared_hash": shared, "quality": quality, "date": now,
+                               "page": _page(talk, s)}
 
     def back_to_review(reviews):
         for s in done:
@@ -929,6 +971,7 @@ def present(talk: Talk, start: str | None = None, wait=True, log=print):
             + ("…" if len(missing) > 10 else ""))
     # present.py is manim-slides' presenter opening in full screen, with a window that fits the
     # screen when leaving it (manim-slides' own does not fit with 1080p renders).
+    _apply_speaker(talk, have)
     cmd = ["uv", "run", "python", str(HERE / "present.py"), "--full-screen",
            "--folder", RENDERS, *have]
     if start in have:
@@ -940,7 +983,10 @@ def present(talk: Talk, start: str | None = None, wait=True, log=print):
 
 
 def export(talk: Talk, fmt="html", log=print, only: str | None = None) -> Path:
-    """Exports the talk as HTML, PDF or MP4. With `only`, exports that slide as MP4 or GIF."""
+    """Exports the talk as HTML, PDF, MP4, PowerPoint or a package of the talk. With `only`,
+    exports that slide as MP4 or GIF."""
+    if fmt == "package" and not only:
+        return _export_package(talk, log)
     have, missing = rendered(talk)
     if not have:
         raise RuntimeError("No slides are rendered yet")
@@ -952,14 +998,17 @@ def export(talk: Talk, fmt="html", log=print, only: str | None = None) -> Path:
         log(f"Heads up, {len(missing)} not rendered are left out of the export")
     if fmt == "gif":
         raise RuntimeError("A GIF is of one slide, tell me which slide")
-    if fmt == "mp4":
-        return _export_video(talk, have, fmt, target / f"{talk.id}.mp4", log)
-    if fmt == "pdf":
-        return _export_pdf(talk, have, target / f"{talk.id}.pdf", log)
+    if fmt in _FROM_VIDEOS:
+        make, name = _FROM_VIDEOS[fmt]
+        return make(talk, have, target / name.format(talk.id), log)
+    _apply_speaker(talk, have)
     base = ["uv", "run", "python", "-m", "manim_slides", "convert", "--folder", RENDERS, *have]
+    if fmt == "pptx":
+        return _export_pptx(talk, base, target / f"{talk.id}.pptx", log)
     folder = target / talk.id
     shutil.rmtree(folder, ignore_errors=True)
     html = folder / f"{talk.id}.html"
+    log("Exporting… (the first time it downloads reveal.js, so it needs internet)")
     _convert(talk, base + [str(html), "--offline"], log)
     # manim-slides writes paths with “\” on Windows; with “/” it also opens on Macs and phones.
     text = html.read_text("utf-8")
@@ -1022,6 +1071,78 @@ def _export_video(talk: Talk, names: list[str], fmt: str, file: Path, log) -> Pa
         cmd = [ff, "-v", "error", "-y", "-f", "concat", "-safe", "0",
                "-i", str(_video_list(talk, names, Path(tmp))), *_video_filter(talk, fmt), str(file)]
         code, lines = run(cmd, talk.pres, log)
+    if code != 0:
+        _fail(lines, 20, "the export failed", log)
+    log(f"Done: {file} ({file.stat().st_size / 1e6:.1f} MB)")
+    return file
+
+
+def speak(text: str, language: str, wav: Path):
+    """Says `text` into a .wav file with the voice of the system for that language."""
+    if os.name == "nt":
+        script = ("Add-Type -AssemblyName System.Speech; "
+                  "$s = New-Object System.Speech.Synthesis.SpeechSynthesizer; "
+                  "$v = $s.GetInstalledVoices() | Where-Object "
+                  "{ $_.VoiceInfo.Culture.Name -like ($env:T_LANG + '*') } | Select-Object -First 1; "
+                  "if ($v) { $s.SelectVoice($v.VoiceInfo.Name) }; "
+                  "$s.SetOutputToWaveFile($env:T_WAV); $s.Speak($env:T_TEXT); $s.Dispose()")
+        cmd = ["powershell", "-NoProfile", "-NonInteractive", "-Command", script]
+    else:
+        program = shutil.which("espeak-ng") or shutil.which("espeak")
+        if not program:
+            raise RuntimeError("The narration needs espeak-ng, install it and try again")
+        cmd = [program, "-v", language.split("-")[0], "-w", str(wav), text]
+    env = _env(T_LANG=language.split("-")[0], T_WAV=str(wav), T_TEXT=text)
+    done = subprocess.run(cmd, env=env, capture_output=True)
+    if done.returncode != 0 or not wav.exists():
+        raise RuntimeError("The voice of the system could not say the notes")
+
+
+def _narrated_part(talk: Talk, ff: str, video: Path, text: str, tmp: Path, n: int) -> Path:
+    """One pause as a video with sound: its animation, then its last frame while the voice
+    says its notes. A pause without notes is silent."""
+    import wave
+    w, h = VIDEO_SIZES[talk.resolution]
+    size = (f"scale={w}:{h}:force_original_aspect_ratio=decrease,pad={w}:{h}:(ow-iw)/2:(oh-ih)/2,"
+            "setsar=1,fps=30")
+    out = tmp / f"{n}.mp4"
+    if text:
+        wav = tmp / f"{n}.wav"
+        speak(text, talk.project.get("language", "es"), wav)
+        with wave.open(str(wav)) as f:
+            hold = f.getnframes() / f.getframerate() + 0.4
+        sound = ["-i", str(wav)]
+        graph = f"[0:v]{size},tpad=stop_mode=clone:stop_duration={hold:.2f}[v];[1:a]apad[a]"
+    else:
+        sound = ["-f", "lavfi", "-i", "anullsrc=r=44100:cl=mono"]
+        graph = f"[0:v]{size}[v];[1:a]anull[a]"
+    cmd = [ff, "-v", "error", "-y", "-i", str(video), *sound, "-filter_complex", graph,
+           "-map", "[v]", "-map", "[a]", "-shortest", "-c:v", "libx264", "-pix_fmt", "yuv420p",
+           "-crf", "18", "-c:a", "aac", "-ar", "44100", "-ac", "1", str(out)]
+    if subprocess.run(cmd, cwd=talk.pres, capture_output=True).returncode != 0:
+        raise RuntimeError("The export failed")
+    return out
+
+
+def _export_narrated(talk: Talk, names: list[str], file: Path, log) -> Path:
+    """One video of the talk where a voice says the speaker notes of each pause."""
+    ff = shutil.which("ffmpeg")
+    if not ff:
+        raise RuntimeError("The video needs ffmpeg, install it and try again")
+    import tempfile
+    notes = read_json(talk.pres / SPEAKER_FILE, {})
+    if not notes:
+        raise RuntimeError("Write the speaker notes first: the voice says them")
+    with tempfile.TemporaryDirectory() as folder:
+        tmp, made = Path(folder), []
+        for name in names:
+            log(f"Narrating {name}…")
+            for i, part in enumerate(parts(talk, name), 1):
+                made.append(_narrated_part(talk, ff, part["video"], _spoken(notes, name, i), tmp, len(made)))
+        listing = tmp / "videos.txt"
+        listing.write_text("".join(f"file '{v.as_posix()}'\n" for v in made), "utf-8")
+        code, lines = run([ff, "-v", "error", "-y", "-f", "concat", "-safe", "0", "-i", str(listing),
+                           "-c", "copy", "-movflags", "+faststart", str(file)], talk.pres, log)
     if code != 0:
         _fail(lines, 20, "the export failed", log)
     log(f"Done: {file} ({file.stat().st_size / 1e6:.1f} MB)")
@@ -1102,8 +1223,52 @@ def pdf_of_pngs(pngs: list[bytes]) -> bytes:
     return bytes(out)
 
 
+# The exports that ffmpeg makes from the videos: how, and the name of the file.
+_FROM_VIDEOS = {
+    "mp4": (lambda talk, names, file, log: _export_video(talk, names, "mp4", file, log), "{}.mp4"),
+    "narrated": (_export_narrated, "{}-narrated.mp4"),
+    "pdf": (_export_pdf, "{}.pdf"),
+}
+
+
+def _export_pptx(talk: Talk, base: list[str], file: Path, log) -> Path:
+    """A PowerPoint file with one page for each pause: its video, and the speaker notes."""
+    w, h = VIDEO_SIZES[talk.resolution]
+    log("Exporting…")
+    _convert(talk, base + [str(file), "--to=pptx", f"-cwidth={w}", f"-cheight={h}"], log)
+    log(f"Done: {file} ({file.stat().st_size / 1e6:.0f} MB)")
+    return file
+
+
+# What a package leaves out of the renders: other exports, the images for Claude and the locks.
+_NOT_PACKAGED = {"exported", "_stills", "_data.lock", "_render.lock"}
+
+
+def _package_files(talk: Talk):
+    """The files of the talk that another Termina needs: the code and the renders."""
+    for folder, subfolders, files in os.walk(talk.root):
+        inside = Path(folder) == talk.renders
+        skip = _NOT_PACKAGED if inside else NOT_SHARED - {RENDERS}
+        subfolders[:] = sorted(s for s in subfolders if s not in skip)
+        yield from (Path(folder) / f for f in sorted(files) if not (inside and f in skip))
+
+
+def _export_package(talk: Talk, log) -> Path:
+    """The talk in one .zip, with its videos: the other person unzips it, opens the folder with
+    the Studio and has every slide up to date."""
+    import zipfile
+    file = talk.path("exported") / f"{talk.id}-talk.zip"
+    file.parent.mkdir(parents=True, exist_ok=True)
+    log("Compressing…")
+    with zipfile.ZipFile(file, "w", zipfile.ZIP_STORED) as z:
+        for p in _package_files(talk):
+            z.write(p, Path(talk.root.name) / p.relative_to(talk.root))
+    log(f"Done: {file} ({file.stat().st_size / 1e6:.0f} MB), unzip it on the other device and "
+        "open its folder with Termina")
+    return file
+
+
 def _convert(talk: Talk, cmd, log):
-    log("Exporting… (the first time it downloads reveal.js, so it needs internet)")
     code, lines = run(cmd, talk.pres, log)
     if code != 0:
         _fail(lines, 20, "the export failed", log)
@@ -1239,12 +1404,12 @@ def _template(talk: Talk, name: str, init_text: str, function: str) -> str:
             for placeholder in TEMPLATE_TITLES:
                 text = text.replace(placeholder, title)
             return text
-    # If the wrapper already makes the final pause (like in langchain), the slide doesn't repeat it.
+    # If the wrapper already makes the final pause (like in agentica), the slide doesn't repeat it.
     wrapper = re.search(r"^def _slide\b.*?(?=^\S)", init_text, re.S | re.M)
     pause = "" if wrapper and "next_slide(" in wrapper.group(0) else "    scene.next_slide()\n"
     return (
         "from manim import DOWN, GRAY, FadeIn, Text\n\n"
-        "# New slide made from ManimRS Studio: its content is still missing.\n"
+        "# New slide made from Termina: its content is still missing.\n"
         f'TITLE = "{title}"\n\n\n'
         f"def {function}(scene):\n"
         "    title = Text(TITLE, font_size=44, color=GRAY)\n"
@@ -1341,6 +1506,24 @@ def move(talk: Talk, s: Slide, after: Slide | None) -> str:
     return f"{s.name} is now " + (f"after {after.name}" if after else "first")
 
 
+def set_group(talk: Talk, s: Slide, name: str) -> str:
+    """Starts a group at `s`: a comment line above its call in main.py. If a group already starts
+    there, its name changes; without a name it is removed and the slides join the group before."""
+    name = " ".join(name.split())
+    if CALL.match(f"# {name}"):
+        raise RuntimeError("A group can not have the name of a slide call")
+    main = talk.pres / "main.py"
+    text = _read(main)
+    lines = text.splitlines(keepends=True)
+    above = lines[s.line - 1]
+    starts = bool(COMMENT.match(above)) and not CALL.match(above)
+    if not starts and not name:
+        return "No group starts there"
+    lines[s.line - starts:s.line] = [f"{_indent(lines[s.line])}# {name}{_eol(text)}"] if name else []
+    _write(main, "".join(lines))
+    return f"The group {name} starts at {s.name}" if name else f"Removed the group that started at {s.name}"
+
+
 def _rename_in_path(path: str, old: str, new: str) -> str:
     sep = "\\" if "\\" in path else "/"
     pieces = path.split(sep)
@@ -1364,7 +1547,8 @@ def _move_render(talk: Talk, old: str, new: str):
     if talk.path(f"{old}.json").exists():
         _rename_render_json(talk.path(f"{old}.json"), talk.path(f"{new}.json"), old, new)
     for a, b in ((f"files/{old}", f"files/{new}"),
-                 (f"_thumbnails/{old}.jpg", f"_thumbnails/{new}.jpg")):
+                 (f"_thumbnails/{old}.jpg", f"_thumbnails/{new}.jpg"),
+                 (f"_objects/{old}.json", f"_objects/{new}.json")):
         if talk.path(a).exists() and not talk.path(b).exists():
             talk.path(a).rename(talk.path(b))
     shutil.rmtree(talk.path(f"_stills/{old}"), ignore_errors=True)
@@ -1393,12 +1577,14 @@ def _rename_renders(talk: Talk, pairs: list[tuple[str, str]], methods=("", "")):
     update_json(talk.path("_renders.json"), in_renders)
     update_json(talk.path("_reviews.json"), lambda data: _rename_keys(data, pairs))
     update_json(talk.path("_resolutions.json"), lambda data: _rename_keys(data, pairs))
+    _update_speaker(talk, lambda data: _rename_speaker(data, pairs))
 
 
 def _delete_renders(talk: Talk, names: list[str]):
     for n in names:
         talk.path(f"{n}.json").unlink(missing_ok=True)
         talk.path(f"_thumbnails/{n}.jpg").unlink(missing_ok=True)
+        talk.path(f"_objects/{n}.json").unlink(missing_ok=True)
         shutil.rmtree(talk.path(f"files/{n}"), ignore_errors=True)
         shutil.rmtree(talk.path(f"_stills/{n}"), ignore_errors=True)
 
@@ -1408,6 +1594,7 @@ def _delete_renders(talk: Talk, names: list[str]):
 
     for file in ("_renders.json", "_reviews.json", "_resolutions.json"):
         update_json(talk.path(file), drop)
+    _update_speaker(talk, lambda data: [data.pop(k) for k in list(data) if k.split("#")[0] in names])
 
 
 def rename(talk: Talk, s: Slide, new: str) -> str:
@@ -1431,6 +1618,24 @@ def rename(talk: Talk, s: Slide, new: str) -> str:
     after = _repetitions(talk, method)
     _rename_renders(talk, list(zip(before, after)), (old, method))
     return f"{s.name} is now called {new}"
+
+
+def hide(talk: Talk, s: Slide) -> str:
+    """Comments out the call of a slide in main.py: the talk does not show it, and `restore` puts
+    it back. Its renders stay, so a slide that did not change comes back up to date."""
+    if not s.active:
+        return f"{s.name} is already out of the talk"
+    siblings = _repetitions(talk, s.method)
+    main = talk.pres / "main.py"
+    lines = _read(main).splitlines(keepends=True)
+    lines[s.line] = re.sub(r"^(\s*)self\.", r"\1# self.", lines[s.line], count=1)
+    _write(main, "".join(lines))
+    if len(siblings) > 1:
+        # The repetitions that came after it move up one number: their renders too.
+        _delete_renders(talk, [s.name])
+        _rename_renders(talk, list(zip([n for n in siblings if n != s.name],
+                                       _repetitions(talk, s.method))))
+    return f"{s.name} is out of the talk, its file stays"
 
 
 def restore(talk: Talk, s: Slide) -> str:
@@ -1556,6 +1761,730 @@ def note(talk: Talk, s: Slide, text: str | None, status: str):
     update_json(talk.path("_reviews.json"), change)
 
 
+def _update_speaker(talk: Talk, change):
+    """Changes speaker-notes.json, if the talk has speaker notes."""
+    file = talk.pres / SPEAKER_FILE
+    if file.exists():
+        update_json(file, change, talk.path("_data.lock"), indent=2)
+
+
+def _rename_speaker(data: dict, pairs: list[tuple[str, str]]):
+    """The notes of a slide and of its pauses (`name#2`) go to the new name."""
+    for old, new in pairs:
+        for k in [k for k in data if k.split("#")[0] == old]:
+            data[new + k[len(old):]] = data.pop(k)
+
+
+def _speaker_of(notes: dict, name: str) -> dict:
+    """What the status says about the speaker notes of a slide."""
+    return {"speaker": notes.get(name, ""), "pause_notes": _pause_notes(notes, name)}
+
+
+def _pause_notes(notes: dict, name: str) -> dict[str, str]:
+    """{pause number: its notes} of a slide."""
+    return {k.split("#")[1]: v for k, v in notes.items() if k.startswith(f"{name}#")}
+
+
+def _spoken(notes: dict, name: str, pause: int) -> str:
+    """What the presenter says on a pause: the notes of the slide on its first pause, then the
+    notes of the pause."""
+    first = notes.get(name, "") if pause == 1 else ""
+    return "\n\n".join(filter(None, (first, notes.get(f"{name}#{pause}", ""))))
+
+
+def set_speaker(talk: Talk, s: Slide, text: str, pause: int = 0) -> str:
+    """The speaker notes of a slide, or of one of its pauses (from 1): what the presenter reads,
+    and the audience does not see. They are in a file of the talk and not in the code, so a
+    change renders nothing again."""
+    text, key = text.strip(), f"{s.name}#{pause}" if pause else s.name
+    if not text:
+        _update_speaker(talk, lambda notes: notes.pop(key, None))
+        return f"{s.name} has no speaker notes" + (f" on pause {pause}" if pause else "")
+    update_json(talk.pres / SPEAKER_FILE, lambda notes: notes.update({key: text}),
+                talk.path("_data.lock"), indent=2)
+    return f"Saved the speaker notes of {s.name}"
+
+
+def _apply_speaker(talk: Talk, names: list[str]):
+    """Writes the speaker notes into the renders: on each pause, the notes of the slide and then
+    the notes of that pause. There the presenter and the exports of Manim Slides read them."""
+    notes = read_json(talk.pres / SPEAKER_FILE, {})
+    for name in names:
+        file = talk.path(f"{name}.json")
+        data = read_json(file, {})
+        own = _pause_notes(notes, name)
+        wanted = ["\n\n".join(filter(None, (notes.get(name, ""), own.get(str(i), ""))))
+                  for i, _ in enumerate(data.get("slides", []), 1)]
+        if wanted != [p.get("notes", "") for p in data.get("slides", [])]:
+            for p, text in zip(data["slides"], wanted):
+                p["notes"] = text
+            write_json(file, data)
+
+
+# ───────────────────────────── the colors of the slides ─────────────────────────────
+# A talk made here keeps its colors in style.py. A theme changes those four lines.
+
+THEMES = {
+    "dark": ("#1f1e1d", "#faf9f5", "#c2c0b6", "#d97757"),
+    "light": ("#f6f6f3", "#0e1116", "#5b616b", "#2b59ff"),
+    "night": ("#0b1020", "#e8ecff", "#9aa3c7", "#7aa2ff"),
+    "paper": ("#fbf7ee", "#2b2620", "#7a7065", "#b4532a"),
+}
+_THEME_COLORS = ("BACKGROUND", "TEXT", "SECONDARY", "ACCENT")
+
+
+def _style_colors(talk: Talk) -> tuple | None:
+    """The four colors of style.py, or None if the talk keeps its colors in a different way."""
+    try:
+        text = _read(talk.pres / "style.py")
+    except OSError:
+        return None
+    found = [re.search(rf'^{k} = "(#[0-9a-fA-F]{{6}})"', text, re.M) for k in _THEME_COLORS]
+    return tuple(m.group(1).lower() for m in found) if all(found) else None
+
+
+def theme_of(talk: Talk) -> str | None:
+    """The name of the theme of the talk; empty for its own colors, None if it has no themes."""
+    colors = _style_colors(talk)
+    if colors is None:
+        return None
+    return next((name for name, values in THEMES.items() if values == colors), "")
+
+
+def set_theme(talk: Talk, name: str) -> str:
+    if name not in THEMES:
+        raise RuntimeError(f"The themes are {', '.join(THEMES)}")
+    if _style_colors(talk) is None:
+        raise RuntimeError("This talk keeps its colors in its own code, ask Claude to change them")
+    file = talk.pres / "style.py"
+    text = _read(file)
+    for k, color in zip(_THEME_COLORS, THEMES[name]):
+        text = re.sub(rf'^({k} = )"#[0-9a-fA-F]{{6}}"', rf'\g<1>"{color}"', text, count=1, flags=re.M)
+    _write(file, text)
+    return f"The slides have the {name} colors, render them again to see it"
+
+
+# ───────────────────────────── editing on the slide ─────────────────────────────
+# A render leaves in diapos/_objects/<name>.json what each pause shows: every object, its box and
+# the line of code that made it. A change on the slide is a small change to that code.
+
+_SHOWS = ("play", "add", "wait", "next_slide")
+_MOVE = re.compile(r"^(\s*)(\w+)\.shift\(\((-?[\d.]+), (-?[\d.]+), 0\)\)  # termina\s*$")
+
+
+def objects(talk: Talk, s: Slide) -> dict:
+    """What the render of a slide shows on each pause. `fresh` is false if the code changed after
+    the render: then the lines of the objects are old."""
+    data = read_json(talk.path(f"_objects/{s.name}.json"), {})
+    done = read_json(talk.path("_renders.json"), {}).get(s.name, {})
+    return {"pauses": data.get("pauses", []), "frame": data.get("frame", [14.22, 8]),
+            "fresh": bool(data) and done.get("hash") == s.hash}
+
+
+def _calls_method(st, scene: str, names) -> bool:
+    """True if the statement calls one of these methods of the scene: scene.play(…)."""
+    return any(isinstance(n, ast.Call) and isinstance(n.func, ast.Attribute) and n.func.attr in names
+               and isinstance(n.func.value, ast.Name) and n.func.value.id == scene
+               for n in ast.walk(st))
+
+
+def _slide_function(tree, s: Slide):
+    """The function that builds the slide in its file."""
+    functions = [n for n in ast.walk(tree) if isinstance(n, ast.FunctionDef)]
+    return next((f for name in (s.method, "build") for f in functions if f.name == name),
+                functions[-1] if functions else None)
+
+
+def _moved_before(lines: list[str], at: int, name: str) -> tuple[int, float, float] | None:
+    """(line, dx, dy) of the move of `name` in the moves right above the line `at`."""
+    for i in range(at - 1, -1, -1):
+        old = _MOVE.match(lines[i])
+        if not old:
+            return None
+        if old.group(2) == name:
+            return i, float(old.group(3)), float(old.group(4))
+    return None
+
+
+def _shift_in_code(text: str, s: Slide, line: int, dx: float, dy: float) -> str | None:
+    """`text` with the object made on `line` moved by (dx, dy). The move goes before the first
+    statement that shows something, after the code that places the object. None if the object
+    has no name of its own in the function of the slide."""
+    fn = _slide_function(ast.parse(text), s)
+    made = next((i for i, st in enumerate(fn.body if fn else [])
+                 if st.lineno <= line <= st.end_lineno and isinstance(st, ast.Assign)
+                 and len(st.targets) == 1 and isinstance(st.targets[0], ast.Name)), None)
+    shows = made is not None and next(
+        (st for st in fn.body[made + 1:] if _calls_method(st, fn.args.args[0].arg, _SHOWS)), None)
+    if not shows:
+        return None
+    name, lines, at = fn.body[made].targets[0].id, text.splitlines(keepends=True), shows.lineno - 1
+    before = _moved_before(lines, at, name)
+    if before:  # a move of this object that is already there: add to it
+        dx, dy, at = dx + before[1], dy + before[2], at - 1
+        del lines[before[0]]
+    lines.insert(at, f"{' ' * shows.col_offset}{name}.shift(({dx:.2f}, {dy:.2f}, 0))  # termina{_eol(text)}")
+    return "".join(lines)
+
+
+def move_object(talk: Talk, s: Slide, pause: int, index: int, dx: float, dy: float) -> str:
+    """Moves an object of a rendered slide, or the group that holds it, by (dx, dy) Manim units."""
+    data = objects(talk, s)
+    if not data["fresh"]:
+        raise RuntimeError("Render the slide first, its code changed after the render")
+    try:
+        shown = data["pauses"][pause]
+        item = shown[index]
+    except (IndexError, TypeError):
+        raise RuntimeError("That object is not on the slide, render it again") from None
+    file = talk.pres / s.file
+    text = _read(file)
+    while item is not None:
+        at = item.get("at")
+        new = _shift_in_code(text, s, at[1], dx, dy) if at and at[0] == s.file else None
+        if new:
+            _write(file, new)
+            return f"Moved {'the group' if item['kind'] == 'group' else 'the object'}"
+        item = shown[item["parent"]] if item.get("parent") is not None else None
+    raise RuntimeError("That object is made inside other code, mark it and ask Claude to move it")
+
+
+def _literals(tree, value: str) -> list[ast.Constant]:
+    """The string literals of the code with this value, without the pieces of f-strings."""
+    inside = {id(v) for n in ast.walk(tree) if isinstance(n, ast.JoinedStr) for v in n.values}
+    return [n for n in ast.walk(tree) if isinstance(n, ast.Constant) and n.value == value
+            and id(n) not in inside]
+
+
+def retext(talk: Talk, s: Slide, old: str, new: str) -> str:
+    """Changes a text of the slide in its code: the one string literal that is equal to it."""
+    file = talk.pres / s.file
+    text = _read(file)
+    found = _literals(ast.parse(text), old)
+    if len(found) != 1:
+        raise RuntimeError("The code makes that text in a different way, change it in Code"
+                           if not found else "That text is in the code more than one time, change it in Code")
+    node, lines = found[0], text.encode("utf-8").splitlines(keepends=True)
+    before = b"".join(lines[:node.lineno - 1]) + lines[node.lineno - 1][:node.col_offset]
+    after = lines[node.end_lineno - 1][node.end_col_offset:] + b"".join(lines[node.end_lineno:])
+    _write(file, before.decode("utf-8") + json.dumps(new, ensure_ascii=False) + after.decode("utf-8"))
+    return "Changed the text"
+
+
+# What `insert` writes for each kind of element: the names it needs from manim, and the code.
+_ELEMENTS = {
+    "text": (("Text",), 'Text("Text", font_size=36{color})'),
+    "formula": (("MathTex",), 'MathTex(r"a^2 + b^2 = c^2"{color})'),
+    "rectangle": (("Rectangle",), "Rectangle(width=3, height=2{color})"),
+    "circle": (("Circle",), "Circle(radius=1{color})"),
+    "arrow": (("Arrow", "LEFT", "RIGHT"), "Arrow(LEFT * 1.5, RIGHT * 1.5{color})"),
+    "picture": (("ImageMobject",), "ImageMobject({file}).scale_to_fit_height(3)"),
+    "sphere": (("Sphere",), "Sphere(radius=1)"),
+    "cube": (("Cube",), "Cube(side_length=1.5)"),
+    "axes": (("ThreeDAxes",), "ThreeDAxes(x_length=4, y_length=4, z_length=3)"),
+}
+
+
+def _with_manim(text: str, names) -> str:
+    """`text` with an import of the names of manim that it does not have."""
+    imports = [n for n in ast.parse(text).body if isinstance(n, ast.ImportFrom) and n.module == "manim"]
+    have = {a.name for n in imports for a in n.names}
+    missing = [n for n in names if n not in have]
+    if "*" in have or not missing:
+        return text
+    lines = text.splitlines(keepends=True)
+    return "".join(_add_names(lines, imports[-1] if imports else None, ", ".join(missing), _eol(text)))
+
+
+def _add_names(lines: list[str], last, names: str, eol: str) -> list[str]:
+    """The lines with these names in the import `last`, if it is one line; or in a new import
+    after it (at the top, if there is none)."""
+    at = last.end_lineno if last else 0
+    if last and last.lineno == at and "(" not in lines[at - 1]:
+        lines[at - 1] = f"{lines[at - 1].rstrip()}, {names}{eol}"
+    else:
+        lines.insert(at, f"from manim import {names}{eol}")
+    return lines
+
+
+def _picture(talk: Talk, file: Path) -> str:
+    """Copies a picture into the talk and returns its path there."""
+    if file.suffix.lower() not in _PICTURES or not file.is_file():
+        raise RuntimeError("The picture is a .png or .jpg file")
+    target = talk.pres / "pictures" / file.name
+    target.parent.mkdir(exist_ok=True)
+    if not target.exists() or target.read_bytes() != file.read_bytes():
+        shutil.copyfile(file, target)
+    return f"pictures/{file.name}"
+
+
+def _element(talk: Talk, kind: str, picture: Path | None) -> tuple[tuple, str]:
+    """The names from manim and the code of a new element."""
+    if kind not in _ELEMENTS or (kind == "picture") != bool(picture):
+        raise RuntimeError(f"The elements are {', '.join(_ELEMENTS)}")
+    names, code = _ELEMENTS[kind]
+    return names, code.replace("{file}", json.dumps(_picture(talk, picture))) if picture else code
+
+
+def insert(talk: Talk, s: Slide, kind: str, pause: int, x: float, y: float,
+           picture: Path | None = None) -> str:
+    """Adds an element to a slide at (x, y), on a pause (from 0): two lines of code before the
+    end of that pause. The element comes in with an animation: without one, the video of the
+    pause ends before it shows."""
+    names, code = _element(talk, kind, picture)
+    file = talk.pres / s.file
+    text = _read(file)
+    # The text color of the talk, if the slide has it: white does not show on a light background.
+    own = re.search(r"^from style import .*TEXT", text, re.M)
+    code = code.replace("{color}", ", color=TEXT" if own else "")
+    fn = _slide_function(ast.parse(text), s)
+    if fn is None or not fn.args.args:
+        raise RuntimeError("I can't find the code of that slide")
+    scene = fn.args.args[0].arg
+    ends = [st for st in fn.body if isinstance(st, ast.Expr) and _calls_method(st, scene, ("next_slide",))]
+    at = ends[pause].lineno - 1 if pause < len(ends) else fn.body[-1].end_lineno
+    name = next(n for n in (f"added_{i}" for i in range(1, 1000)) if n not in text)
+    indent, eol = " " * fn.body[0].col_offset, _eol(text)
+    lines = text.splitlines(keepends=True)
+    lines[at:at] = [f"{indent}{name} = {code}.move_to(({x:.2f}, {y:.2f}, 0))  # termina{eol}",
+                    f"{indent}{scene}.play(FadeIn({name}), run_time=0.4)  # termina{eol}"]
+    _write(file, _with_manim("".join(lines), (*names, "FadeIn")))
+    return f"Added the {kind}"
+
+
+def source(talk: Talk, s: Slide, text: str | None = None) -> dict:
+    """The code of the file of a slide. With `text`, replaces it, only if it is correct Python."""
+    file = talk.pres / s.file
+    if text is not None:
+        text = text.replace("\r\n", "\n")
+        try:
+            compile(text, s.name, "exec")
+        except (SyntaxError, ValueError) as e:
+            where = f" on line {e.lineno}" if getattr(e, "lineno", None) else ""
+            raise RuntimeError(f"The code has an error{where}, nothing was saved: "
+                               f"{getattr(e, 'msg', e)}") from None
+        _write(file, text.replace("\n", "\r\n") if "\r\n" in _read(file) else text)
+    return {"text": _read(file).replace("\r\n", "\n")}
+
+
+# ───────────────────────────── find and replace ─────────────────────────────
+# Only inside the string literals of the slides: that is the text the audience reads, and a
+# replacement there can not rename a variable.
+
+_QUOTES = re.compile(r"(?i)[rbuf]*('''|\"\"\"|'|\")")
+
+
+def _string_spans(text: str) -> list[tuple[int, int]]:
+    """(start, end) of the text of each string literal of Python code, without the docstrings."""
+    import io
+    import tokenize
+    starts = [0]
+    for line in text.split("\n"):
+        starts.append(starts[-1] + len(line) + 1)
+    middle = getattr(tokenize, "FSTRING_MIDDLE", None)  # Python 3.12 and newer
+    spans, alone = [], True
+    for tok in tokenize.generate_tokens(io.StringIO(text).readline):
+        a, b = starts[tok.start[0] - 1] + tok.start[1], starts[tok.end[0] - 1] + tok.end[1]
+        if tok.type == tokenize.STRING and not alone:
+            quote = _QUOTES.match(tok.string)
+            spans.append((a + quote.end(), b - len(quote.group(1))))
+        elif tok.type == middle:
+            spans.append((a, b))
+        if tok.type not in (tokenize.COMMENT, tokenize.NL):
+            alone = tok.type in (tokenize.NEWLINE, tokenize.INDENT, tokenize.DEDENT)
+    return spans
+
+
+def _matcher(query: str, case: bool, word: bool, regex: bool) -> re.Pattern:
+    if not query:
+        raise RuntimeError("Write what to find")
+    pattern = query if regex else re.escape(query)
+    if word:
+        pattern = rf"\b(?:{pattern})\b"
+    try:
+        return re.compile(pattern, 0 if case else re.IGNORECASE)
+    except re.error as e:
+        raise RuntimeError(f"That is not a regular expression: {e}") from None
+
+
+def _find_in_code(text: str, rx: re.Pattern, repl) -> tuple[list[int], str]:
+    """The line of each match in the string literals of `text`, and `text` with `repl` in their
+    place (as it is, if `repl` is None)."""
+    lines, out, last = [], [], 0
+    for a, b in _string_spans(text):
+        lines += [text.count("\n", 0, m.start()) + 1 for m in rx.finditer(text, a, b)]
+        out += [text[last:a], text[a:b] if repl is None else rx.sub(repl, text[a:b])]
+        last = b
+    return lines, "".join(out) + text[last:]
+
+
+def _find_in_file(text: str, s: Slide, rx: re.Pattern, repl) -> tuple[list[dict], str]:
+    """The matches in the file of the slide `s`, and its new text."""
+    try:
+        lines, new = _find_in_code(text, rx, repl)
+        compile(new, s.name, "exec")
+    except (SyntaxError, ValueError):
+        if repl is None:
+            return [], text  # code that is not finished: nothing to find there
+        raise RuntimeError(f"The replacement breaks the code of {s.name}, nothing was changed") from None
+    shown = text.split("\n")
+    return [{"slide": s.name, "key": s.name if s.active else f"#{s.line}", "line": n,
+             "text": shown[n - 1].strip()[:160], "notes": False} for n in lines], new
+
+
+def _find_in_notes(talk: Talk, rx: re.Pattern, repl) -> list[dict]:
+    """The speaker notes that have a match. With `repl`, replaces it there."""
+    notes = read_json(talk.pres / SPEAKER_FILE, {})
+    hits = [name for name, text in notes.items() if rx.search(text)]
+    if hits and repl is not None:
+        _update_speaker(talk, lambda data: data.update(
+            {n: rx.sub(repl, data[n]) for n in hits if n in data}))
+    return [{"slide": n, "key": n, "line": 0, "text": notes[n][:160], "notes": True} for n in hits]
+
+
+def find(talk: Talk, query: str, replacement: str | None = None,
+         case=False, word=False, regex=False) -> dict:
+    """Finds text in the slides and in the speaker notes. With `replacement`, replaces it too."""
+    rx = _matcher(query, case, word, regex)
+    repl = replacement if regex or replacement is None else (lambda m: replacement)
+    owners: dict[str, Slide] = {}
+    for s in read_plan(talk):
+        owners.setdefault(s.file, s)
+    matches, changes = [], {}
+    for rel, s in owners.items():
+        text = _read(talk.pres / rel)
+        found, new = _find_in_file(text, s, rx, repl)
+        matches += found
+        if new != text:
+            changes[talk.pres / rel] = new
+    for file, text in changes.items():  # only now: a file that breaks stops all of them
+        _write(file, text)
+    matches += _find_in_notes(talk, rx, repl)
+    return {"matches": matches, "replaced": 0 if repl is None else len(matches)}
+
+
+# ───────────────────────────── import of PowerPoint ─────────────────────────────
+# A .pptx is a .zip of XML. The text boxes and the pictures of each page go to a slide, at the same
+# place. Animations, charts and shapes do not come: the slides are code now, add them there.
+
+_NS = {"a": "http://schemas.openxmlformats.org/drawingml/2006/main",
+       "p": "http://schemas.openxmlformats.org/presentationml/2006/main"}
+_REL = "{http://schemas.openxmlformats.org/officeDocument/2006/relationships}"
+_FRAME = (8 * 16 / 9, 8)  # the Manim frame, in its units
+_PICTURES = (".png", ".jpg", ".jpeg")
+_NOT_CONTENT = ("sldNum", "ftr", "dt")
+
+_IMPORTED_SLIDE = '''\
+from manim import FadeIn, ImageMobject, Text
+
+from style import FONT, TEXT
+
+# The text boxes: text, font size, x, y and width
+TEXTS = {texts}
+# The pictures: file, x, y and width
+PICTURES = {pictures}
+
+
+def build(scene):
+    things = [ImageMobject(file).scale_to_fit_width(width).move_to((x, y, 0))
+              for file, x, y, width in PICTURES]
+    for text, size, x, y, width in TEXTS:
+        box = Text(text, font=FONT, font_size=size, color=TEXT)
+        if box.width > width:
+            box.scale_to_fit_width(width)
+        things.append(box.move_to((x, y, 0)))
+    if things:
+        scene.play(*[FadeIn(t) for t in things], run_time=0.6)
+    scene.wait(0.3)
+    scene.next_slide()
+'''
+
+
+def _pptx_xml(z, name: str):
+    from xml.etree import ElementTree
+    return ElementTree.fromstring(z.read(name))
+
+
+def _pptx_rels(z, part: str) -> dict[str, tuple[str, str]]:
+    """id -> (kind, path in the .zip) of what a part of the file points to."""
+    import posixpath
+    folder, _, file = part.rpartition("/")
+    name = f"{folder}/_rels/{file}.rels"
+    if name not in z.namelist():
+        return {}
+    out = {}
+    for r in _pptx_xml(z, name):
+        target = r.get("Target", "")
+        path = target[1:] if target.startswith("/") else posixpath.normpath(f"{folder}/{target}")
+        out[r.get("Id")] = (r.get("Type", "").rsplit("/", 1)[-1], path)
+    return out
+
+
+def _pptx_box(shape, size) -> tuple[float, float, float] | None:
+    """x, y and width of a shape in Manim units, or None if the layout of the page places it."""
+    off, ext = shape.find(".//a:xfrm/a:off", _NS), shape.find(".//a:xfrm/a:ext", _NS)
+    if off is None or ext is None:
+        return None
+    width, height = int(ext.get("cx")), int(ext.get("cy"))
+    x = (int(off.get("x")) + width / 2) / size[0] - 0.5
+    y = 0.5 - (int(off.get("y")) + height / 2) / size[1]
+    return round(x * _FRAME[0], 2), round(y * _FRAME[1], 2), round(width / size[0] * _FRAME[0], 2)
+
+
+def _pptx_kind(shape) -> str:
+    ph = shape.find("p:nvSpPr/p:nvPr/p:ph", _NS)
+    return "" if ph is None else ph.get("type", "body")
+
+
+def _pptx_text(shape) -> str:
+    paragraphs = ("".join(run.text or "" for run in p.iterfind(".//a:t", _NS))
+                  for p in shape.iterfind("p:txBody/a:p", _NS))
+    return "\n".join(p for p in paragraphs if p.strip())
+
+
+def _pptx_shape(shape, size) -> dict | None:
+    """A text box of a page: {text, size, box, title}. None if it has no text of the page."""
+    text, kind = _pptx_text(shape), _pptx_kind(shape)
+    if not text or kind in _NOT_CONTENT:
+        return None
+    title = kind in ("title", "ctrTitle")
+    sz = shape.find(".//a:rPr[@sz]", _NS)
+    points = int(sz.get("sz")) / 100 if sz is not None else 40 if title else 18
+    # 12700 units of the file in a point; a Manim font size is 1/75 of a unit of its frame
+    return {"text": text, "size": round(points * 12700 / size[1] * _FRAME[1] * 75),
+            "box": _pptx_box(shape, size), "title": title}
+
+
+def _pptx_texts(tree, size) -> list[dict]:
+    """The text boxes of a page. One that the layout places goes at the top if it is the title,
+    and below the others if not."""
+    out = [t for t in (_pptx_shape(s, size) for s in tree.iterfind(".//p:sp", _NS)) if t]
+    below = (1.5 - 1.4 * i for i in range(len(out)))
+    for t in (t for t in out if t["box"] is None):
+        t["box"] = (0, 3 if t["title"] else next(below), 12)
+    return out
+
+
+def _pptx_pictures(z, tree, rels: dict, size) -> list[tuple]:
+    """(extension, bytes, box) of each picture of a page that Manim can read."""
+    out = []
+    for pic in tree.iterfind(".//p:pic", _NS):
+        blip, box = pic.find(".//a:blip", _NS), _pptx_box(pic, size)
+        path = rels.get(blip.get(f"{_REL}embed") if blip is not None else None, ("", ""))[1]
+        ext = Path(path).suffix.lower()
+        if box and ext in _PICTURES and path in z.namelist():
+            out.append((ext, z.read(path), box))
+    return out
+
+
+def _pptx_notes(z, rels: dict) -> str:
+    path = next((p for kind, p in rels.values() if kind == "notesSlide"), None)
+    if path is None or path not in z.namelist():
+        return ""
+    shapes = _pptx_xml(z, path).iterfind(".//p:sp", _NS)
+    return "\n".join(filter(None, (_pptx_text(s) for s in shapes if _pptx_kind(s) == "body")))
+
+
+def _pptx_pages(z) -> list[dict]:
+    """The pages of the file in order: {texts, pictures, notes}."""
+    part = "ppt/presentation.xml"
+    pres, rels = _pptx_xml(z, part), _pptx_rels(z, part)
+    sz = pres.find("p:sldSz", _NS)
+    size = (int(sz.get("cx")), int(sz.get("cy")))
+    pages = []
+    for ref in pres.iterfind("p:sldIdLst/p:sldId", _NS):
+        path = rels[ref.get(f"{_REL}id")][1]
+        tree, own = _pptx_xml(z, path), _pptx_rels(z, path)
+        pages.append({"texts": _pptx_texts(tree, size), "notes": _pptx_notes(z, own),
+                      "pictures": _pptx_pictures(z, tree, own, size)})
+    return pages
+
+
+def _pptx_title(page: dict) -> str:
+    """The first line of the title of a page; without a title, of its first text box."""
+    texts = sorted(page["texts"], key=lambda t: not t["title"])
+    return texts[0]["text"].split("\n")[0].strip() if texts else ""
+
+
+def _pptx_slides(file: Path) -> list[dict]:
+    """The pages of a PowerPoint file as slides: {title, code, pictures, notes}."""
+    import zipfile
+    from xml.etree.ElementTree import ParseError
+    try:
+        with zipfile.ZipFile(file) as z:
+            pages = _pptx_pages(z)
+    except (OSError, zipfile.BadZipFile, KeyError, ParseError, AttributeError, ValueError, TypeError):
+        raise RuntimeError("That file is not a PowerPoint presentation (.pptx)") from None
+    slides = []
+    for n, page in enumerate(pages, 1):
+        pictures = [(f"pptx/page{n}_{i}{ext}", data, box)
+                    for i, (ext, data, box) in enumerate(page["pictures"], 1)]
+        code = _IMPORTED_SLIDE.format(
+            texts=json.dumps([[x["text"], x["size"], *x["box"]] for x in page["texts"]], ensure_ascii=False),
+            pictures=json.dumps([[rel, *box] for rel, _, box in pictures], ensure_ascii=False))
+        slides.append({"title": _pptx_title(page), "code": code, "notes": page["notes"],
+                       "pictures": [(rel, data) for rel, data, _ in pictures]})
+    return slides
+
+
+# Beamer: each frame is a slide, and each \pause a pause. The text, the lists, the display
+# formulas and the pictures come. What else LaTeX draws (TikZ, tables) does not.
+
+_IMPORTED_FRAME = '''\
+from manim import BOLD, DOWN, LEFT, UL, FadeIn, Group, ImageMobject, MathTex, Text
+
+from style import FONT, TEXT, TEXT_SIZE, TITLE_SIZE
+
+TITLE = {title}
+# What comes in at each pause: lines of text, items of a list, formulas and pictures
+STEPS = {steps}
+
+
+def _line(kind, value):
+    if kind == "formula":
+        return MathTex(value, color=TEXT)
+    if kind == "picture":
+        return ImageMobject(value).scale_to_fit_height(3)
+    return Text(("•  " if kind == "item" else "") + value, font=FONT, font_size=TEXT_SIZE, color=TEXT)
+
+
+def build(scene):
+    made = [[_line(kind, value) for kind, value in step] for step in STEPS]
+    body = Group(*[line for step in made for line in step]).arrange(DOWN, aligned_edge=LEFT, buff=0.35)
+    if body.height > 5.5:
+        body.scale_to_fit_height(5.5)
+    if body.width > 12.5:
+        body.scale_to_fit_width(12.5)
+    if TITLE:
+        title = Text(TITLE, font=FONT, font_size=TITLE_SIZE, color=TEXT, weight=BOLD)
+        title.to_corner(UL, buff=0.8)
+        body.next_to(title, DOWN, buff=0.6, aligned_edge=LEFT)
+        scene.play(FadeIn(title), run_time=0.6)
+    for step in made:
+        if step:
+            scene.play(*[FadeIn(line) for line in step], run_time=0.5)
+        scene.wait(0.3)
+        scene.next_slide()
+'''
+
+_BEAMER_FRAME = re.compile(r"\\begin\{frame\}(.*?)\\end\{frame\}", re.S)
+_FRAME_TITLE = re.compile(r"^\s*(?:<[^>]*>)?(?:\[[^\]]*\])?\s*\{([^{}]*)\}|\\frametitle\{([^{}]*)\}")
+_BEAMER = re.compile(
+    r"(?P<pause>\\pause\b)|(?P<item>\\item\b(?:<[^>]*>)?)|(?P<endlist>\\end\{(?:itemize|enumerate|description)\})"
+    r"|\\\[(?P<display>.*?)\\\]|\$\$(?P<dollars>.*?)\$\$"
+    r"|\\begin\{(?P<env>equation\*?|align\*?)\}(?P<math>.*?)\\end\{(?P=env)\}"
+    r"|\\includegraphics(?:\[[^\]]*\])?\{(?P<picture>[^{}]*)\}|\\note\{(?P<note>[^{}]*)\}", re.S)
+
+
+def _tex_plain(text: str) -> list[str]:
+    """The lines of text of a piece of LaTeX, without its commands."""
+    text = re.sub(r"\\(begin|end)\{[^{}]*\}(\[[^\]]*\])?|\\frametitle\{[^{}]*\}", "\n", text)
+    for _ in range(4):  # \textbf{\emph{x}} → x
+        text = re.sub(r"\\[a-zA-Z]+\*?(?:\[[^\]]*\])?\{([^{}]*)\}", r"\1", text)
+    text = re.sub(r"\\\\|\\par\b", "\n", text)
+    text = re.sub(r"\\[a-zA-Z]+\*?|[{}]", "", text).replace("~", " ")
+    return [" ".join(line.split()) for line in text.split("\n") if line.strip()]
+
+
+def _beamer_picture(value: str, folder: Path) -> Path | None:
+    """The file of an \\includegraphics, if Manim can read it."""
+    candidates = [folder / value, *(folder / f"{value}{ext}" for ext in _PICTURES)]
+    return next((c for c in candidates if c.is_file() and c.suffix.lower() in _PICTURES), None)
+
+
+def _beamer_match(m: re.Match, frame: dict, folder: Path) -> str:
+    """Puts what a command of the frame is into `frame`; returns the kind of the text after it."""
+    kind = m.lastgroup
+    if kind == "pause":
+        frame["steps"].append([])
+    elif kind == "note":
+        frame["notes"].append(" ".join(m["note"].split()))
+    elif kind == "picture":
+        file = _beamer_picture(m["picture"].strip(), folder)
+        if file:
+            frame["pictures"][f"beamer/{file.name}"] = file.read_bytes()
+            frame["steps"][-1].append(["picture", f"beamer/{file.name}"])
+    elif kind in ("display", "dollars", "math"):
+        math = " ".join(m[kind].split())
+        frame["steps"][-1].append(["formula", rf"\begin{{aligned}}{math}\end{{aligned}}"
+                                   if (m["env"] or "").startswith("align") else math])
+    return "item" if kind == "item" else "text"
+
+
+def _beamer_frame(body: str, folder: Path, default_title: str) -> dict:
+    title = _FRAME_TITLE.search(body)
+    name = " ".join(next(filter(None, title.groups()), "").split()) if title else ""
+    if title:
+        body = body[:title.start()] + body[title.end():]
+    if re.search(r"\\(titlepage|maketitle)\b", body):
+        name = name or default_title
+    frame = {"steps": [[]], "notes": [], "pictures": {}}
+    kind, last = "text", 0
+    for m in _BEAMER.finditer(body):
+        frame["steps"][-1] += [[kind, line] for line in _tex_plain(body[last:m.start()])]
+        kind, last = _beamer_match(m, frame, folder), m.end()
+    frame["steps"][-1] += [[kind, line] for line in _tex_plain(body[last:])]
+    code = _IMPORTED_FRAME.format(title=json.dumps(name, ensure_ascii=False),
+                                  steps=json.dumps(frame["steps"], ensure_ascii=False))
+    return {"title": name, "code": code, "notes": "\n".join(frame["notes"]),
+            "pictures": list(frame["pictures"].items())}
+
+
+def _beamer_slides(file: Path) -> list[dict]:
+    """The frames of a Beamer file as slides: {title, code, pictures, notes}."""
+    try:
+        text = re.sub(r"(?<!\\)%.*", "", file.read_text("utf-8", errors="replace"))
+    except OSError:
+        raise RuntimeError("I can't read that file") from None
+    title = re.search(r"\\title(?:\[[^\]]*\])?\{([^{}]*)\}", text)
+    default = " ".join(title.group(1).split()) if title else ""
+    return [_beamer_frame(m.group(1), file.parent, default) for m in _BEAMER_FRAME.finditer(text)]
+
+
+def _slide_name(title: str, n: int, used: set[str]) -> str:
+    """A slide name from the title of a page, that no other slide has."""
+    plain = unicodedata.normalize("NFKD", title).encode("ascii", "ignore").decode()
+    base = re.sub(r"[^a-z0-9]+", "_", plain.lower()).strip("_")[:40].strip("_")
+    if not base[:1].isalpha():
+        base = f"page_{n}"
+    name = next(c for c in (base, *(f"{base}_{i}" for i in range(2, 1000))) if c not in used)
+    used.add(name)
+    return name
+
+
+def _write_page(talk: Talk, s: Slide, page: dict):
+    _write(talk.pres / s.file, page["code"])
+    for rel, data in page["pictures"]:
+        (talk.pres / rel).parent.mkdir(exist_ok=True)
+        (talk.pres / rel).write_bytes(data)
+
+
+_IMPORTERS = {".pptx": _pptx_slides, ".tex": _beamer_slides}
+
+
+def import_talk(file: Path, where: Path | None = None, folder: str | None = None) -> Talk:
+    """Makes a talk from a PowerPoint or a Beamer file: one slide for each page, with its text,
+    its pictures and its speaker notes."""
+    if file.suffix.lower() not in _IMPORTERS:
+        raise RuntimeError("The file is a PowerPoint presentation (.pptx) or a Beamer presentation (.tex)")
+    pages = _IMPORTERS[file.suffix.lower()](file)
+    if not pages:
+        raise RuntimeError("That presentation has no pages")
+    talk = new_talk(next((p["title"] for p in pages if p["title"]), "") or file.stem,
+                    where=where, folder=folder)
+    used, ref, notes = {"title", "closing"}, None, {}
+    for n, page in enumerate(pages, 1):
+        ref = new_slide(talk, _slide_name(page["title"], n, used), ref or _find(read_plan(talk), "title"))
+        _write_page(talk, ref, page)
+        notes[ref.name] = page["notes"]
+    for name in ("title", "closing"):  # the two slides of a new talk: the file has its own
+        delete(talk, _find(read_plan(talk), name))
+    notes = {name: text for name, text in notes.items() if text}
+    if notes:
+        write_json(talk.pres / SPEAKER_FILE, notes, indent=2)
+    return talk
+
+
 # ───────────────────────────── new talk ─────────────────────────────
 # The minimum for the studio to treat it like the others: main.py with construct(), the slides
 # registered in diapositivas/__init__.py with _slide, a style and a template.
@@ -1588,6 +2517,8 @@ dependencies = [
     "manim>=0.18,<0.22",
     "manim-slides[pyqt6]>=5.1",
     "numpy>=1.26",
+    # manim 0.21 can not draw a picture with pillow 13
+    "pillow<13",
 ]
 """
 
@@ -1822,7 +2753,7 @@ def _new_talk_files(name: str, title: str, about: str, language: str) -> dict:
     return {
         PROJECT_FILE: json.dumps({"manimrs": 1, **project}, ensure_ascii=False, indent=2) + "\n",
         "README.md": "\n".join(readme + [
-            "Animated presentation with Manim Slides, made with ManimRS Studio. What the talk is",
+            "Animated presentation with Manim Slides, made with Termina. What the talk is",
             f"(title, what it is about, language and resolution) is in `{PROJECT_FILE}`.", ""]),
         ".gitignore": _NEW_GITIGNORE,
         ".manim-slides.toml": _NEW_PRESENTER_KEYS,
@@ -2187,12 +3118,26 @@ def _talk_parser(talk: Talk, command: str) -> argparse.ArgumentParser:
     p.add_argument("--pdf", action="store_true")
     p.add_argument("--mp4", action="store_true", help="one video of the talk, or of one slide")
     p.add_argument("--gif", action="store_true", help="a GIF of one slide")
+    p.add_argument("--pptx", action="store_true", help="a PowerPoint file with the videos")
+    p.add_argument("--package", action="store_true", help="the talk and its videos in one .zip")
     p.add_argument("--approve", action="store_true")
     p.add_argument("--clear", action="store_true")
     p.add_argument("--json", action="store_true")
     p.add_argument("--width", type=int)
     p.add_argument("--after")
     p.add_argument("--first", action="store_true")
+    p.add_argument("--from", dest="from_file", help="source: the file with the new code")
+    p.add_argument("--replace", help="find: the text that takes the place of each match")
+    p.add_argument("--case", action="store_true", help="find: capital letters must agree")
+    p.add_argument("--word", action="store_true", help="find: only whole words")
+    p.add_argument("--regex", action="store_true", help="find: the text is a regular expression")
+    p.add_argument("--narrated", action="store_true", help="a video where a voice says the speaker notes")
+    p.add_argument("--pause", type=int, help="the pause: from 1 for speaker, from 0 for the objects")
+    p.add_argument("--index", type=int, help="move-object: the number of the object on its pause")
+    p.add_argument("--by", help="move-object: how far, in Manim units: dx,dy")
+    p.add_argument("--kind", help="insert: " + ", ".join(_ELEMENTS))
+    p.add_argument("--at", help="insert: where, in Manim units: x,y")
+    p.add_argument("--file", help="insert: the picture")
     p.add_argument("--line", type=int, help="the line in main.py (works for commented-out slides)")
     return p
 
@@ -2239,7 +3184,22 @@ def _cmd_new_talk(args: list[str]):
     return _print_talk(talk, a.json, f"Created {talk.id} with a title slide and a closing slide")
 
 
-TALKS_COMMANDS = {"talks": _cmd_talks, "open": _cmd_open, "new-talk": _cmd_new_talk}
+def _cmd_import(args: list[str]):
+    p = argparse.ArgumentParser(prog="studio import")
+    p.add_argument("file")
+    p.add_argument("--in", dest="where", help="the folder that will hold it (the talks folder by default)")
+    p.add_argument("--folder", help="the name of its folder (charla-<title> by default)")
+    p.add_argument("--json", action="store_true")
+    a = p.parse_args(args)
+    try:
+        talk = import_talk(Path(a.file), Path(a.where) if a.where else None, a.folder)
+    except (RuntimeError, OSError) as e:
+        raise SystemExit(f"Error: {e}") from None
+    return _print_talk(talk, a.json, f"Created {talk.id} from {Path(a.file).name}")
+
+
+TALKS_COMMANDS = {"talks": _cmd_talks, "open": _cmd_open, "new-talk": _cmd_new_talk,
+                  "import": _cmd_import}
 
 
 def execute(talk: Talk, command: str, a, plan: list[Slide]):
@@ -2310,6 +3270,57 @@ def _cmd_rename(talk, a, plan):
     return rename(talk, _one(talk, a, plan), " ".join(new))
 
 
+def _cmd_group(talk, a, plan):
+    name = a.slides[1:] if a.line is None else a.slides
+    return set_group(talk, _one(talk, a, plan), " ".join(name))
+
+
+def _cmd_speaker(talk, a, plan):
+    text = a.slides[1:] if a.line is None else a.slides
+    return set_speaker(talk, _one(talk, a, plan), " ".join(text), a.pause or 0)
+
+
+def _cmd_source(talk, a, plan):
+    text = Path(a.from_file).read_text("utf-8") if a.from_file else None
+    return json.dumps(source(talk, _one(talk, a, plan), text), ensure_ascii=False)
+
+
+def _cmd_find(talk, a, plan):
+    found = find(talk, " ".join(a.slides), a.replace, a.case, a.word, a.regex)
+    return json.dumps(found, ensure_ascii=False)
+
+
+def _pair(text: str | None) -> tuple[float, float]:
+    """“1.5,-2” → (1.5, -2.0)."""
+    try:
+        x, y = (float(v) for v in (text or "").split(","))
+    except ValueError:
+        raise SystemExit("Give two numbers: x,y") from None
+    return x, y
+
+
+def _cmd_move_object(talk, a, plan):
+    return move_object(talk, _one(talk, a, plan), a.pause or 0, a.index or 0, *_pair(a.by))
+
+
+def _cmd_retext(talk, a, plan):
+    words = a.slides[1:] if a.line is None else a.slides
+    if len(words) != 2:
+        raise SystemExit('Usage: retext <slide> "old text" "new text"')
+    return retext(talk, _one(talk, a, plan), *words)
+
+
+def _cmd_insert(talk, a, plan):
+    return insert(talk, _one(talk, a, plan), a.kind or "", a.pause or 0, *_pair(a.at),
+                  Path(a.file) if a.file else None)
+
+
+def _cmd_theme(talk, a, plan):
+    if a.slides:
+        return set_theme(talk, a.slides[0])
+    return f"{theme_of(talk) or 'its own colors'} (the themes are {', '.join(THEMES)})"
+
+
 def _cmd_restore(talk, a, plan):
     if a.line is not None:
         s = next((s for s in plan if s.line == a.line), None)
@@ -2355,7 +3366,7 @@ def _cmd_duplicate(talk, a, plan):
 
 
 def _cmd_export(talk, a, plan):
-    fmt = "pdf" if a.pdf else "mp4" if a.mp4 else "gif" if a.gif else "html"
+    fmt = next((f for f in ("pdf", "mp4", "gif", "pptx", "package", "narrated") if getattr(a, f)), "html")
     only = resolve(talk, plan, a.slides[:1])[0].name if a.slides else None
     export(talk, fmt, only=only)
 
@@ -2391,8 +3402,18 @@ COMMANDS = {
     "new": _cmd_new,
     "move": _cmd_move,
     "rename": _cmd_rename,
+    "group": _cmd_group,
     "duplicate": _cmd_duplicate,
+    "hide": lambda talk, a, plan: hide(talk, _one(talk, a, plan)),
     "restore": _cmd_restore,
+    "speaker": _cmd_speaker,
+    "source": _cmd_source,
+    "objects": lambda talk, a, plan: json.dumps(objects(talk, _one(talk, a, plan)), ensure_ascii=False),
+    "move-object": _cmd_move_object,
+    "retext": _cmd_retext,
+    "insert": _cmd_insert,
+    "theme": _cmd_theme,
+    "find": _cmd_find,
     "delete": lambda talk, a, plan: delete(talk, _one(talk, a, plan)),
     "resolution": _cmd_resolution,
 }

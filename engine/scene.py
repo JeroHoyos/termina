@@ -15,6 +15,10 @@ what is needed from it:
 - any other: only its start hook runs (`start_slide()`, or `iniciar_slide()` in the older
   talks), which keeps counters and frame up to date, and it is not built.
 
+While a target is built, the scene writes down what each pause shows (every object, its box and
+the line of the talk that made it) in `diapos/_objects/<name>.json`: the app edits on the slide
+with it. With STUDIO_NUMBERS = on, each slide shows its page number.
+
 As soon as a target ends, it is saved in its own `diapos/<name>.json` and `STUDIO: saved <name>`
 is printed, so the studio shows it while the others render. The other slides that are already
 rendered are not touched.
@@ -25,7 +29,8 @@ import os
 import sys
 from pathlib import Path
 
-from manim import config
+from manim import DR, Group, ImageMobject, Mobject, Text, VGroup, config
+from manim.mobject.text.tex_mobject import SingleStringMathTex
 from manim.utils.exceptions import EndSceneEarlyException
 from manim_slides.slide import Slide
 
@@ -36,6 +41,67 @@ OUTPUT = Path("diapos")
 TARGETS = {int(i): v for i, v in json.loads(os.environ["STUDIO_TARGETS"]).items()}
 LAST = max(TARGETS)
 START_HOOKS = ("start_slide", "iniciar_slide")
+NUMBERS = os.environ.get("STUDIO_NUMBERS") == "on"
+TALK = Path(os.environ.get("STUDIO_TALK", os.getcwd())).resolve()
+
+_init = Mobject.__init__
+
+
+def _tracked_init(self, *args, **kwargs):
+    """Every object remembers the line of the talk that made it."""
+    _init(self, *args, **kwargs)
+    frame = sys._getframe(1)
+    while frame is not None:
+        file = frame.f_code.co_filename
+        if file.endswith(".py") and "site-packages" not in file and ".venv" not in file:
+            try:
+                self._s_at = [Path(file).resolve().relative_to(TALK).as_posix(), frame.f_lineno]
+                return
+            except ValueError:
+                pass
+        frame = frame.f_back
+
+
+Mobject.__init__ = _tracked_init
+
+
+def _kind(m):
+    """What an object is for the editor, and its text."""
+    if isinstance(m, Text):
+        return "text", m.original_text
+    if isinstance(m, SingleStringMathTex):
+        return "formula", m.tex_string
+    if isinstance(m, ImageMobject):
+        return "picture", ""
+    return ("group" if type(m) in (VGroup, Group) else "shape"), ""
+
+
+def _box(m):
+    """The box of an object as fractions of the frame: left, top, width and height."""
+    fw, fh = config.frame_width, config.frame_height
+    box = ((m.get_left()[0] + fw / 2) / fw, (fh / 2 - m.get_top()[1]) / fh, m.width / fw, m.height / fh)
+    return [round(float(v), 4) for v in box]
+
+
+def _empty(m):
+    """True for what the editor does not show: an object without a size, and the page number."""
+    return not (m.width or m.height) or getattr(m, "_s_hidden", False)
+
+
+def _objects(scene):
+    """What the scene shows now: each object, and the objects inside each group after it."""
+    out, todo = [], [(m, None) for m in reversed(scene.mobjects)]
+    while todo:
+        m, parent = todo.pop()
+        if _empty(m):
+            continue
+        kind, text = _kind(m)
+        out.append({"kind": kind, "text": text, "at": getattr(m, "_s_at", None), "parent": parent,
+                    "box": _box(m)})
+        if kind == "group":
+            todo += [(sub, len(out) - 1) for sub in reversed(m.submobjects)]
+    return out
+
 
 Base = next(
     c for c in vars(main).values()
@@ -52,6 +118,8 @@ class Slides(Base):
         self._s_owners = []     # which slide each entry of self._slides belongs to
         self._s_name = None
         self._s_saved = set()   # the targets already saved
+        self._s_objects = {}    # target → what each of its pauses shows
+        self._s_numbered = -1   # the last slide that got its page number
         self._s_skip(0 not in TARGETS)
 
     def _s_skip(self, skip):
@@ -67,8 +135,14 @@ class Slides(Base):
 
     def next_slide(self, *args, **kwargs):
         before = len(self._slides)
+        try:
+            shown = _objects(self) if self._s_i in TARGETS else None
+        except Exception:  # the editor is an extra: it never stops a render
+            shown = None
         super().next_slide(*args, **kwargs)
         self._s_owners += [self._s_i] * (len(self._slides) - before)
+        if shown is not None and len(self._slides) > before:
+            self._s_objects.setdefault(self._s_i, []).append(shown)
         # It is drawn if this slide is a target, or if the next one is (its transition starts at
         # the last pause of this one).
         i = self._s_i
@@ -94,7 +168,21 @@ class Slides(Base):
                                  skip_reversing=self.skip_reversing)
         finally:
             self._slides, self._current_animation, self._s_name = everything, current, None
+        folder = OUTPUT / "_objects"
+        folder.mkdir(parents=True, exist_ok=True)
+        (folder / f"{info['name']}.json").write_text(json.dumps(
+            {"frame": [config.frame_width, config.frame_height], "pauses": self._s_objects.get(i, [])},
+            ensure_ascii=False), "utf-8")
         print(f"STUDIO: saved {info['name']}", flush=True)
+
+    def _s_number(self):
+        """The page number of the slide that starts, in the corner."""
+        if not NUMBERS or self._s_depth != 1 or self._s_numbered == self._s_i:
+            return
+        self._s_numbered = self._s_i
+        number = Text(str(self._s_i + 1), font_size=20, color="#868c95").to_corner(DR, buff=0.3)
+        number._s_hidden = True  # the editor does not change it
+        self.add(number)
 
     def _save_slides(self, *args, **kwargs):
         # The end of the render: each target was saved when it ended, except one that did not end.
@@ -133,6 +221,8 @@ def _run_slide(scene, name, original, args, kwargs):
     scene._s_depth += 1
     try:
         hook = _start_hook(scene)
+        if hook is None:
+            scene._s_number()
         if i in TARGETS or i + 1 in TARGETS or hook is None:
             original(scene, *args, **kwargs)
         else:
@@ -152,6 +242,18 @@ def _wrap(name, original):
     method.__name__ = name
     return method
 
+
+def _numbered(original):
+    def hook(self, *args, **kwargs):
+        original(self, *args, **kwargs)
+        self._s_number()
+
+    return hook
+
+
+for _name in START_HOOKS:
+    if hasattr(Base, _name):
+        setattr(Slides, _name, _numbered(getattr(Base, _name)))
 
 for _name in dir(Base):
     if _name.startswith("slide_") and callable(getattr(Base, _name)):

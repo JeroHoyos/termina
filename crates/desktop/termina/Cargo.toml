@@ -1,6 +1,6 @@
 [package]
-name = "manimrs-studio"
-description = "ManimRS Studio: make the slides of your talks with Claude, one at a time"
+name = "termina"
+description = "Termina: make the slides of your talks with Claude, one at a time"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true

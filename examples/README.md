@@ -1,6 +1,6 @@
 # Example talks
 
-Two short talks show what a talk made with ManimRS Studio looks like. Each slide shows one idea
+Two short talks show what a talk made with Termina looks like. Each slide shows one idea
 that moves, in the style of the [3Blue1Brown videos](https://github.com/3b1b/videos). The code is
 new and does not use LaTeX.
 
@@ -21,12 +21,12 @@ new and does not use LaTeX.
 4. Click *Render pending*. The first time, the talk installs its Python packages.
 5. Click *Present*.
 
-From a terminal, in the folder that holds `manimrs-studio`:
+From a terminal, in the folder that holds `termina`:
 
 ```powershell
-manimrs-studio\studio.cmd open manimrs-studio\examples\fourier-circles
-manimrs-studio\studio.cmd fourier-circles render --pending
-manimrs-studio\studio.cmd fourier-circles present
+termina\studio.cmd open termina\examples\fourier-circles
+termina\studio.cmd fourier-circles render --pending
+termina\studio.cmd fourier-circles present
 ```
 
 ## What to learn from them

@@ -4,7 +4,7 @@ The commands do the same work as the app and the web panel.
 
 ## Run a command
 
-From the `manimrs-studio` folder:
+From the `termina` folder:
 
 ```powershell
 .\studio <command>
@@ -13,7 +13,7 @@ From the `manimrs-studio` folder:
 From the talks folder:
 
 ```powershell
-uv run --no-project manimrs-studio/engine/studio.py <command>
+uv run --no-project termina/engine/studio.py <command>
 ```
 
 The engine uses only the Python standard library. A project environment is not necessary.
@@ -25,6 +25,7 @@ The engine uses only the Python standard library. A project environment is not n
 | `studio` | Opens the web panel in the browser. |
 | `studio panel --no-browser` | Starts the web panel without the browser. |
 | `studio talks [--json]` | Lists the talks with the folder of each talk. |
+| `studio import <file> [--in <folder>] [--folder <name>] [--json]` | Makes a talk from a PowerPoint file (`.pptx`) or a Beamer file (`.tex`). Each page becomes a slide. |
 | `studio open <folder> [--json]` | Adds the talk in `<folder>` to the list. |
 | `studio new-talk "<title>" [options]` | Makes a talk with a title slide and an end slide. |
 | `studio help` | Shows the help. |
@@ -67,7 +68,21 @@ Options of `new-talk`:
 | `studio <talk> place slide_<name> [--after <slide>]` | Puts a registered slide in `main.py`. |
 | `studio <talk> move <slide> --after <slide>` | Moves a slide. Use `--first` to make it the first slide. |
 | `studio <talk> rename <slide> "<new name>"` | Renames a slide and its videos. |
+| `studio <talk> group <slide> "<name>"` | Starts a group of slides at the slide. Without a name, it removes the group that starts there. |
 | `studio <talk> duplicate <slide> ["<new name>"]` | Makes a copy of a slide after it. Without a name, the copy is `<slide>_copy`. |
+| `studio <talk> hide <slide>` | Makes the call of a slide in `main.py` a comment. The talk does not show the slide. Its file and its videos stay. |
+| `studio <talk> source <slide> [--from <file>]` | Writes the code of a slide as JSON. With `--from`, it replaces the code with the contents of `<file>`. It refuses code with a syntax error. |
+| `studio <talk> find "<text>" [--replace "<text>"]` | Finds text in the slides and in the speaker notes, and writes the matches as JSON. With `--replace`, it replaces each match. |
+| `studio <talk> speaker [--pause <n>] <slide> ["<text>"]` | Sets the speaker notes of a slide. Without text, it removes them. With `--pause`, the notes are for that pause only (from 1). |
+| `studio <talk> theme [<name>]` | Shows the colors of the slides, or changes them: `dark`, `light`, `night` or `paper`. |
+| `studio <talk> info --numbers on` | Puts a page number on each slide. Use `off` to remove it. |
+| `studio <talk> export --narrated` | Makes a video where a voice says the speaker notes of each pause. |
+| `studio <talk> objects <slide>` | Writes what a rendered slide shows on each pause, as JSON. |
+| `studio <talk> move-object <slide> --pause <n> --index <n> --by=<dx,dy>` | Moves an object of a slide. The pause and the index come from `objects` (from 0). The distance is in Manim units. |
+| `studio <talk> retext <slide> "<old>" "<new>"` | Changes a text of a slide in its code. |
+| `studio <talk> insert <slide> --kind <kind> --pause <n> --at=<x,y>` | Adds an element to a slide: `text`, `formula`, `rectangle`, `circle`, `arrow`, `sphere`, `cube`, `axes`, or `picture` with `--file <path>`. |
+| `studio <talk> export --pptx` | Makes a PowerPoint file. Each pause is a page with its video and the speaker notes. |
+| `studio <talk> export --package` | Makes a `.zip` with the code and the videos of the talk, for a different Termina. |
 | `studio <talk> restore <slide>` | Removes the comment from the call of a slide in `main.py`. |
 | `studio <talk> delete <slide>` | Removes a slide. Its file goes to the recycle bin. |
 | `studio <talk> resolution <slide> <value>` | Sets the resolution of one slide: `480p`, `720p`, `1080p` or `default`. |
@@ -77,8 +92,9 @@ Options for one talk:
 | Option | Commands | Result |
 | --- | --- | --- |
 | `--quality 480p\|720p\|1080p` | `render` | The resolution of the render. The default is the resolution of the talk. A slide with its own resolution keeps it. |
-| `--line <number>` | `move`, `rename`, `restore`, `delete`, `resolution` | Selects the slide by its line in `main.py` (from 0). This also works for a slide that is a comment. |
-| `--json` | `info`, `new`, `talks`, `open`, `new-talk` | Writes the result as JSON. |
+| `--line <number>` | `move`, `rename`, `group`, `duplicate`, `hide`, `restore`, `delete`, `resolution`, `speaker` | Selects the slide by its line in `main.py` (from 0). This also works for a slide that is a comment. |
+| `--case`, `--word`, `--regex` | `find` | Capital letters must agree. Only whole words. The text is a regular expression. |
+| `--json` | `info`, `new`, `talks`, `open`, `new-talk`, `import` | Writes the result as JSON. |
 
 ## Examples
 

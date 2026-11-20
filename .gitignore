@@ -1,6 +1,6 @@
 # Rust and Tauri
 target/
-crates/desktop/manimrs_studio/gen/schemas/
+crates/desktop/termina/gen/schemas/
 
 # Python
 __pycache__/

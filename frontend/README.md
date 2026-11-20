@@ -1,7 +1,7 @@
 # The window of the app
 
-This folder holds the window of ManimRS Studio, in TypeScript. The Rust app in
-`crates/desktop/manimrs_studio/` shows it in a Tauri window.
+This folder holds the window of Termina, in TypeScript. The Rust app in
+`crates/desktop/termina/` shows it in a Tauri window.
 
 | Path | Contents |
 | --- | --- |

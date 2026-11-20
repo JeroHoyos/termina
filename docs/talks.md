@@ -3,11 +3,12 @@
 ## Talks in any folder
 
 The list at the top of the app shows all the talks that the engine knows. The talks can be in any
-folder. The engine keeps the list in `manimrs-studio/talks.json`.
+folder. The engine keeps the list in `termina/talks.json`.
 
 | Action | Procedure | Result |
 | --- | --- | --- |
 | Make a talk | Select *+ New talk* at the end of the list. Type the title, what the talk is about and the language of its slides. Click *Choose folder* to select where the talk goes. | The new talk has a title slide and an end slide. If you wrote what the talk is about, Claude proposes the slides and waits for your approval. |
+| Import a presentation | Select *Import a presentation…*, then select a PowerPoint file (`.pptx`) or a Beamer file (`.tex`). | The new talk has one slide for each page, with its text, its pictures and its speaker notes. From Beamer, the lists, the display formulas and each `\pause` also come. Animations, charts, shapes and TikZ pictures do not come. Keynote files do not open on Windows or Linux: export them to PowerPoint first. |
 | Open a talk | Select *Open a talk…*, then select the folder of the talk. | The talk goes into the list. If the folder is empty, the form for a new talk opens. |
 | See or change a talk | Click the **ⓘ** button next to the list. | A form shows the title, what the talk is about, the author and the language. *Show in folder* opens the folder of the talk. |
 | Remove a talk from the list | In the same form, click *Remove from the list…*. | The engine does not delete files. You can open the talk again at a later time. |
@@ -20,7 +21,7 @@ For *Open a talk…*, you can select one of these folders:
 - Its `presentacion` folder, for example `charla-git\presentacion`.
 - The folder of its `talk.manimrs` file.
 
-The first time, the engine adds the talks that are next to `manimrs-studio` and that have a
+The first time, the engine adds the talks that are next to `termina` and that have a
 `presentacion/main.py` file.
 
 ## The talk.manimrs file
@@ -45,6 +46,7 @@ You can read it and change it with a text editor:
 | `about` | Who the talk is for and what it is about. Claude reads it before it makes slides. |
 | `author` | The person who gives the talk. |
 | `language` | The language of the slides, as a code: `es`, `en`, `pt-BR`. |
+| `numbers` | `on` puts a page number in the corner of each slide. The default is `off`. |
 | `resolution` | The resolution of the talk: `480p`, `720p` or `1080p`. A slide without its own resolution renders at this resolution, and is up to date only at this resolution. |
 
 If a talk has no `talk.manimrs` file, the engine makes one the first time that it opens the talk.
@@ -114,6 +116,7 @@ change the files of the other slides.
 | `_resolutions.json` | The resolution of each slide that has its own resolution. |
 | `_thumbnails/` | One image for each slide. |
 | `_stills/` | One image for each pause, for Claude. |
+| `_objects/` | What each pause of a slide shows: the objects, their boxes and the lines of code that made them. *Edit on the slide* uses it. |
 | `exported/` | The exports: HTML package, PDF, MP4 and GIF. |
 | `_data.lock`, `_render.lock` | Locks. Only one process at a time changes these files or renders the talk. |
 

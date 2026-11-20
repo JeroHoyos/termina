@@ -1,6 +1,6 @@
 Idioma: [EN](README.md) | Español
 
-<h1 align="center">ManimRS Studio</h1>
+<h1 align="center">Termina</h1>
 
 <p align="center">
   <img src="https://img.shields.io/badge/Windows%20%7C%20Linux%20(experimental)-111827?style=for-the-badge" alt="Windows y Linux" />
@@ -8,7 +8,7 @@ Idioma: [EN](README.md) | Español
   <img src="https://img.shields.io/badge/estado-prelanzamiento%200.6-b45309?style=for-the-badge" alt="Prelanzamiento 0.6" />
 </p>
 
-ManimRS Studio es una app de escritorio de código abierto para charlas hechas con
+Termina es una app de escritorio de código abierto para charlas hechas con
 [Manim Slides](https://github.com/jeertmans/manim-slides). Renderiza solo la diapositiva que
 cambió, señala lo que está mal y deja que un agente lo arregle.
 
@@ -25,7 +25,7 @@ cambió, señala lo que está mal y deja que un agente lo arregle.
 Manim Slides renderiza una charla como una sola escena. Si renderizas unas pocas diapositivas,
 pierdes las demás. Si las renderizas todas, esperas por todas.
 
-ManimRS Studio guarda cada diapositiva en su propio archivo, con sus videos. Cuando renderizas
+Termina guarda cada diapositiva en su propio archivo, con sus videos. Cuando renderizas
 una, las demás no cambian. Cada diapositiva sigue empezando con la transición de la anterior.
 
 ## Funciones
@@ -63,13 +63,13 @@ Pon este repositorio en la carpeta que tiene tus charlas. Si no tienes charlas, 
 vacía.
 
 ```powershell
-git clone https://github.com/JeroHoyos/manimrs-studio.git
-cd manimrs-studio\frontend
+git clone https://github.com/JeroHoyos/manimrs-studio.git termina
+cd termina\frontend
 npm ci
 npm run build
 cd ..
 cargo build --release
-.\target\release\manimrs-studio.exe
+.\target\release\termina.exe
 ```
 
 La app corre en Windows 10 y 11. Linux es experimental y macOS no tiene soporte. Mira
@@ -94,10 +94,10 @@ El [tutorial](docs/es/tutorial.md) muestra cada paso con imágenes. Toda la docu
 - **Bien hoy:** renderizar una diapositiva, la revisión con marcas, el chat de Claude, las
   exportaciones, Windows.
 - **Flojo:** Linux, otros agentes, los tipos del código de la ventana.
-- **Sin empezar:** instaladores, macOS, tema oscuro, interfaz en español.
+- **Sin empezar:** instaladores, macOS, interfaz en español.
 
 Los pasos hasta la 1.0 son instalador (0.7), TypeScript estricto y temas (0.8), un segundo agente
-en el chat y notas del orador (0.9), y luego macOS y formatos estables (1.0).
+en el chat (0.9), y luego macOS y formatos estables (1.0).
 
 ## Contribuir
 
@@ -124,11 +124,11 @@ No reportes una vulnerabilidad en un issue público: usa *Report a vulnerability
 
 ## Licencia
 
-ManimRS Studio es software libre bajo la [Licencia MIT](LICENSE). La app incluye marked (MIT),
+Termina es software libre bajo la [Licencia MIT](LICENSE). La app incluye marked (MIT),
 DOMPurify (Apache-2.0 o MPL-2.0), Space Grotesk e IBM Plex Mono (SIL Open Font License 1.1), en
 `frontend/apps/studio/public/`.
 
-ManimRS Studio se apoya en [Manim Community](https://www.manim.community/) y
+Termina se apoya en [Manim Community](https://www.manim.community/) y
 [Manim Slides](https://github.com/jeertmans/manim-slides). Los
 [videos de 3Blue1Brown](https://github.com/3b1b/videos) son el modelo de las charlas de ejemplo,
 [Recordly](https://github.com/webadderallorg/Recordly) el de esta página y

@@ -62,10 +62,27 @@ pub async fn open_talk(s: St<'_>, path: String) -> Result<Value, String> {
     in_thread(move || e.json(["open".to_string(), "--json".into(), "--".into(), path])).await
 }
 
+/// Asks for a PowerPoint or a Beamer file and makes a talk from it in `place`; returns
+/// `{id, title, path}`, or nothing if the dialog was closed.
+#[tauri::command]
+pub async fn import_talk(s: St<'_>, window: tauri::WebviewWindow, place: String) -> Result<Option<Value>, String> {
+    if !Path::new(&place).is_absolute() {
+        return Err("Choose the folder that will hold it".into());
+    }
+    let e = s.engine.clone();
+    in_thread(move || {
+        let picked = studio_shell::pick_file(&window, "Import a presentation", "Presentations", &["pptx", "tex"])?;
+        let Some(file) = picked else { return Ok(None) };
+        let file = file.display().to_string();
+        e.json(["import".to_string(), "--json".into(), format!("--in={place}"), "--".into(), file]).map(Some)
+    })
+    .await
+}
+
 /// Changes what talk.manimrs says (title, what it is about, resolution…); returns all its fields.
 #[tauri::command]
 pub async fn save_talk(s: St<'_>, talk: String, fields: HashMap<String, String>) -> Result<Value, String> {
-    const FIELDS: [&str; 5] = ["title", "about", "author", "language", "resolution"];
+    const FIELDS: [&str; 6] = ["title", "about", "author", "language", "resolution", "numbers"];
     check_talk(&talk)?;
     let mut args = vec![talk, "info".to_string(), "--json".into()];
     for (k, v) in fields {

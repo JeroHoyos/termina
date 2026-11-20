@@ -23,11 +23,11 @@ diapositivas usan más programas, por ejemplo LaTeX para las fórmulas. Mira la
 ## Carpetas
 
 El motor encuentra las charlas a partir de su propia carpeta. La carpeta que contiene
-`manimrs-studio` es la carpeta de charlas. La primera vez, la app y el motor buscan charlas ahí:
+`termina` es la carpeta de charlas. La primera vez, la app y el motor buscan charlas ahí:
 
 ```text
 charlas/                    la carpeta de charlas
-├── manimrs-studio/         este repositorio
+├── termina/         este repositorio
 │   ├── crates/             la app (Rust)
 │   ├── frontend/           la ventana (TypeScript)
 │   ├── engine/             el motor (Python)
@@ -44,13 +44,13 @@ Una charla también puede estar en otra carpeta. Mira [Charlas](talks.md).
 Abre una terminal en la carpeta de charlas. Si no tienes charlas, usa una carpeta vacía.
 
 ```powershell
-git clone https://github.com/JeroHoyos/manimrs-studio.git
-cd manimrs-studio\frontend
+git clone https://github.com/JeroHoyos/manimrs-studio.git termina
+cd termina\frontend
 npm ci
 npm run build
 cd ..
 cargo build --release
-.\target\release\manimrs-studio.exe
+.\target\release\termina.exe
 ```
 
 La primera compilación toma unos minutos. Si falta un programa, la app te dice cuál. Mira
@@ -72,10 +72,10 @@ Nadie del proyecto ha usado la app en un escritorio Linux. Reporta los problemas
 3. Clona el repositorio en la carpeta de charlas y compila la app:
 
    ```bash
-   git clone https://github.com/JeroHoyos/manimrs-studio.git
-   cd manimrs-studio/frontend && npm ci && npm run build && cd ..
+   git clone https://github.com/JeroHoyos/manimrs-studio.git termina
+   cd termina/frontend && npm ci && npm run build && cd ..
    cargo build --release
-   ./target/release/manimrs-studio
+   ./target/release/termina
    ```
 
 | Función | En Linux |
@@ -83,7 +83,7 @@ Nadie del proyecto ha usado la app en un escritorio Linux. Reporta los problemas
 | Selector de carpetas | La app usa `zenity` o `kdialog`. Instala uno de los dos. |
 | Papelera | El motor usa `gio trash`. Sin `gio`, el archivo de una diapositiva borrada se queda en su carpeta. |
 | Terminal | La app abre la primera que encuentre: `x-terminal-emulator`, `gnome-terminal`, `konsole`, `xfce4-terminal` o `xterm`. |
-| Panel web y comandos | Corre `sh studio.sh` en la carpeta `manimrs-studio`. |
+| Panel web y comandos | Corre `sh studio.sh` en la carpeta `termina`. |
 | Fuentes | Una charla nueva usa la fuente `Segoe UI`. Cambia `FONT` en el `style.py` de la charla por una fuente que tengas. |
 
 ## Actualizar la app

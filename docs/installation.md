@@ -20,12 +20,12 @@ use more programs, for example LaTeX for math. Refer to the
 
 ## Folders
 
-The engine finds the talks from its own folder. The folder that holds `manimrs-studio` is the
+The engine finds the talks from its own folder. The folder that holds `termina` is the
 talks folder. The app and the engine look for talks there the first time:
 
 ```text
 talks/                      the talks folder
-├── manimrs-studio/         this repository
+├── termina/         this repository
 │   ├── crates/             the app (Rust)
 │   ├── frontend/           the window (TypeScript)
 │   ├── engine/             the engine (Python)
@@ -42,13 +42,13 @@ A talk can also be in a different folder. For more information, refer to [Talks]
 Open a terminal in the talks folder. If you do not have talks, use an empty folder.
 
 ```powershell
-git clone https://github.com/JeroHoyos/manimrs-studio.git
-cd manimrs-studio\frontend
+git clone https://github.com/JeroHoyos/manimrs-studio.git termina
+cd termina\frontend
 npm ci
 npm run build
 cd ..
 cargo build --release
-.\target\release\manimrs-studio.exe
+.\target\release\termina.exe
 ```
 
 The first build takes some minutes. If a program is not installed, the app tells you which one.
@@ -70,10 +70,10 @@ The maintainers did not use the app on a Linux desktop. Report the problems that
 3. Clone the repository into the talks folder and build the app:
 
    ```bash
-   git clone https://github.com/JeroHoyos/manimrs-studio.git
-   cd manimrs-studio/frontend && npm ci && npm run build && cd ..
+   git clone https://github.com/JeroHoyos/manimrs-studio.git termina
+   cd termina/frontend && npm ci && npm run build && cd ..
    cargo build --release
-   ./target/release/manimrs-studio
+   ./target/release/termina
    ```
 
 | Function | On Linux |
@@ -81,7 +81,7 @@ The maintainers did not use the app on a Linux desktop. Report the problems that
 | Folder dialog | The app uses `zenity` or `kdialog`. Install one of them. |
 | Recycle bin | The engine uses `gio trash`. Without `gio`, the file of a deleted slide stays in its folder. |
 | Terminal | The app opens the first one that it finds: `x-terminal-emulator`, `gnome-terminal`, `konsole`, `xfce4-terminal` or `xterm`. |
-| Web panel and commands | Run `sh studio.sh` in the `manimrs-studio` folder. |
+| Web panel and commands | Run `sh studio.sh` in the `termina` folder. |
 | Fonts | A new talk uses the font `Segoe UI`. Change `FONT` in the `style.py` file of the talk to a font that you have. |
 
 ## Update the app

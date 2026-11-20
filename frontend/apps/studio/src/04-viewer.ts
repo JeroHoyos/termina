@@ -2,6 +2,7 @@
 function paintViewer(fresh) {
   if (mode === 'new') { if (fresh) paintNew(); return; }
   if (mode === 'talk') { if (fresh && !$('#f-talk')) paintNewTalk(); return; }
+  if (mode === 'find') { if (fresh && !$('#f-find')) paintFind(); return; }
   if (mode === 'details') { if (fresh && !$('#f-details')) paintDetails(); return; }
   const s = current();
   if (!s) {
@@ -33,6 +34,7 @@ function paintViewer(fresh) {
         <span class="time" id="v-time"></span>
         <span class="pauses" id="v-pauses" aria-live="polite"></span>
         <span class="spacer"></span>
+        <button class="btn" id="b-canvas" title="Move, change and add objects on the slide">${icon('pencil')}Edit on the slide</button>
         <button class="btn" id="b-render"></button>
         <button class="btn" id="b-present" title="Present the talk from this slide">${icon('play')}Present from here</button>
       </div>
@@ -52,7 +54,23 @@ function paintViewer(fresh) {
           <button class="btn subtle" id="b-save-note" title="Save the note to send it later together with others">${icon('pencil')}Save note</button>
           <button class="btn primary" id="b-send" title="Send the request to Claude">${icon('send')}Send to Claude</button>
         </div>
-      </section></div>`;
+      </section>
+      <section class="review" aria-labelledby="t-speaker">
+        <div class="review-head"><h2 id="t-speaker">Speaker notes</h2><span class="hint">Only you see them when you present</span></div>
+        <textarea id="speaker" aria-labelledby="t-speaker" placeholder="What you want to say on this slide"></textarea>
+        <div class="review-head pause-head"><h2 id="t-pause-notes">Only on this pause</h2><span class="hint" id="v-pause-n"></span></div>
+        <textarea id="pause-notes" aria-labelledby="t-pause-notes" placeholder="What you want to say when this pause shows"></textarea>
+      </section>
+      <details class="review" id="code">
+        <summary><h2>Code</h2></summary>
+        <textarea id="source" class="code" spellcheck="false" wrap="off" aria-label="Code of the slide"></textarea>
+        <div class="review-actions"><span class="hint">Render the slide to see a change</span><span class="spacer"></span>
+          <button class="btn" id="b-save-code" disabled>${icon('check')}Save code</button></div>
+      </details></div>`;
+    wireCode(s);
+    $('#speaker').value = s.speaker;
+    $('#pause-notes').onchange = e => attempt(invoke('edit', {talk, args: ['speaker', '--pause', e.target.dataset.p, '--', s.name, e.target.value]}).then(() => { refresh(); }));
+    $('#speaker').onchange = e => attempt(invoke('edit', {talk, args: ['speaker', '--', s.name, e.target.value]}).then(() => { refresh(); }));
     $('#note').value = noteDrafts.get(noteKey(s)) ?? (s.review.note || '');
     $('#note').oninput = e => { const now = current(); if (now) noteDrafts.set(noteKey(now), e.target.value); };
     wireNoteImages();
@@ -84,7 +102,76 @@ function paintViewer(fresh) {
   br.innerHTML = `${icon('layers')}Render`;
   br.disabled = rendering().has(s.name);
   $('#b-present').disabled = !s.parts.length;
+  $('#b-canvas').disabled = !s.parts.length;
   loadVideo();
+}
+
+// The notes of the pause that the player shows. A pause that you are writing stays.
+function paintPauseNotes() {
+  const s = current(), box = $('#pause-notes');
+  if (!s || !box || document.activeElement === box) return;
+  box.dataset.p = String(part + 1);
+  box.value = s.pause_notes?.[part + 1] || '';
+  $('#v-pause-n').textContent = s.parts.length ? `Pause ${part + 1}` : '';
+}
+
+// The code of the slide loads when its section opens; the section stays as you left it.
+function wireCode(s) {
+  const code = $('#code');
+  const fill = async () => {
+    if (!code.open || code.dataset.loaded) return;
+    code.dataset.loaded = '1';
+    try { $('#source').value = (await invoke('source', {talk, line: s.line})).text; }
+    catch (e) { toast(String(e)); }
+  };
+  code.open = load('studio.code', '') === '1';
+  code.ontoggle = () => { save('studio.code', code.open ? '1' : ''); fill(); };
+  $('#source').oninput = () => { $('#b-save-code').disabled = false; };
+  fill();
+}
+
+// Find and replace in the text of the slides and in the speaker notes.
+let findQuery = '';
+function paintFind() {
+  releaseVideos();
+  $('#viewer').innerHTML = `<form class="form" id="f-find" autocomplete="off">
+    <div><h1>Find in the slides</h1>
+      <p class="hint">It looks in the text of the slides and in the speaker notes</p></div>
+    <div class="field"><label for="q-find">Find</label><input type="text" id="q-find" required></div>
+    <div class="field"><label for="q-replace">Replace with <span class="optional">optional</span></label>
+      <input type="text" id="q-replace"></div>
+    <div class="checks"><label><input type="checkbox" id="q-case">Match case</label>
+      <label><input type="checkbox" id="q-word">Whole words</label></div>
+    <div class="actions">
+      <button type="button" class="btn subtle" id="q-close">Close</button>
+      <button type="button" class="btn" id="q-all">Replace all</button>
+      <button type="submit" class="btn primary">${icon('search')}Find</button>
+    </div>
+    <div id="q-results" aria-live="polite"></div></form>`;
+  const query = $('#q-find');
+  const run = async replace => {
+    findQuery = query.value;
+    if (!findQuery) { query.focus(); return null; }
+    try {
+      const r = await invoke('find', {talk, query: findQuery, replace, case: $('#q-case').checked, word: $('#q-word').checked});
+      $('#q-results').innerHTML = r.matches.length ? r.matches.map(m => `<button type="button" class="found" data-k="${esc(m.key)}">
+        <b>${esc(m.slide)}</b>${m.notes ? '<span class="tag">speaker notes</span>' : ''}<span>${esc(m.text)}</span></button>`).join('')
+        : '<div class="empty-state"><b>Nothing found</b>Try with other words</div>';
+      return r;
+    } catch (e) { toast(String(e)); return null; }
+  };
+  query.value = findQuery;
+  query.focus(); query.select();
+  if (findQuery) run(null);
+  $('#f-find').onsubmit = e => { e.preventDefault(); run(null); };
+  $('#q-close').onclick = () => { mode = 'view'; paintViewer(true); };
+  $('#q-all').onclick = async () => {
+    const to = $('#q-replace').value;
+    if (!query.value || !confirm(`Replace every “${query.value}” with “${to}” in the slides and the speaker notes?`)) return;
+    const r = await run(to);
+    if (r) { toast(`Replaced ${r.replaced} time${r.replaced === 1 ? '' : 's'}`); refresh(); }
+  };
+  $('#q-results').onclick = e => select((e.target as Element).closest('.found')?.dataset.k);
 }
 
 function paintOut(s) {
@@ -216,6 +303,8 @@ function paintNewTalk() {
   };
 }
 
+const THEMES = [['dark', 'Dark'], ['light', 'Light'], ['night', 'Night'], ['paper', 'Paper']];
+
 // What the talk is, from its talk.manimrs: Claude reads the same file.
 function paintDetails() {
   releaseVideos();
@@ -233,6 +322,10 @@ function paintDetails() {
       <input type="text" id="d-author"></div>
     <div class="field"><label for="d-language">Language of the slides</label>
       <select id="d-language">${languageOptions(p.language || 'es')}</select></div>
+    ${data.theme === null ? '' : `<div class="field"><label for="d-theme">Colors of the slides</label>
+      <select id="d-theme">${data.theme ? '' : '<option value="">Its own colors</option>'}${THEMES.map(([v, n]) => `<option value="${v}">${n}</option>`).join('')}</select>
+      <span class="hint">A change of colors needs a new render of the slides</span></div>`}
+    <div class="checks"><label><input type="checkbox" id="d-numbers">Number the slides</label></div>
     <div class="field"><span class="field-name" id="d-where">Folder</span>
       <div class="place" role="group" aria-labelledby="d-where"><span class="place-path" id="d-place"></span>
         <button type="button" class="btn" id="d-show">Show in folder</button></div></div>
@@ -245,6 +338,8 @@ function paintDetails() {
   const fields = ['title', 'about', 'author', 'language'];
   for (const f of fields) $(`#d-${f}`).value = p[f] || '';
   $('#d-language').value = p.language || 'es';
+  $('#d-numbers').checked = p.numbers === 'on';
+  if ($('#d-theme')) $('#d-theme').value = data.theme;
   $('#d-place').textContent = shortPath(data.path);
   $('#d-place').title = data.path;
   $('#d-title').focus();
@@ -269,7 +364,10 @@ function paintDetails() {
     if (changed.title === '') { $('#d-title').focus(); toast('The talk needs a title'); return; }
     $('#d-save').disabled = true;
     try {
+      const numbers = $('#d-numbers').checked ? 'on' : 'off', colors = $('#d-theme')?.value;
+      if (numbers !== (p.numbers || 'off')) changed.numbers = numbers;
       if (Object.keys(changed).length) await invoke('save_talk', {talk, fields: changed});
+      if (colors && colors !== data.theme) await invoke('edit', {talk, args: ['theme', colors]});
       mode = 'view';
       if (changed.title) { talks = await invoke('talks'); paintTalks(); }
       await refresh();

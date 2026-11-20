@@ -1,9 +1,9 @@
-"""MCP server of ManimRS Studio for any agent: OpenCode, Codex (ChatGPT), Gemini CLI, Cursor…
+"""MCP server of Termina for any agent: OpenCode, Codex (ChatGPT), Gemini CLI, Cursor…
 
 The agent starts it (the app does not have to be open) and talks to it through its input and
 output, one JSON-RPC message per line:
 
-    uv run --no-project manimrs-studio/engine/mcp_server.py
+    uv run --no-project termina/engine/mcp_server.py
 
 It gives the same tools the app gives its own Claude chat (talks, slides, notes, render, view,
 place, export, present), and each one runs a studio.py command, so the app, the web panel and the
@@ -25,12 +25,12 @@ QUALITIES = ("480p", "720p", "1080p")
 TALK = re.compile(r"[A-Za-z0-9_][A-Za-z0-9_-]{0,79}")
 
 INSTRUCTIONS = (
-    "Tools of ManimRS Studio. Each slide of a manim talk is rendered on its own: rendering one "
+    "Tools of Termina. Each slide of a manim talk is rendered on its own: rendering one "
     "never touches the others. Flow to create or change one: edit its .py with your own tools, "
     "register it in diapositivas/__init__.py if it is new, place it in main.py with “place”, "
     "render it with “render” and check it with “view”. A talk can live in any folder: “talks” "
     "gives the folder of each one. Before editing, read its talk.manimrs (title, what it is "
-    "about, language, resolution) and its AGENTS.md or README. If the ManimRS Studio app is "
+    "about, language, resolution) and its AGENTS.md or README. If the Termina app is "
     "open, the user sees there every slide you render."
 )
 
@@ -168,7 +168,7 @@ def answer(message: dict) -> dict | None:
     if method == "initialize":
         result = {"protocolVersion": params.get("protocolVersion", "2025-06-18"),
                   "capabilities": {"tools": {}},
-                  "serverInfo": {"name": "studio", "title": "ManimRS Studio", "version": VERSION},
+                  "serverInfo": {"name": "studio", "title": "Termina", "version": VERSION},
                   "instructions": INSTRUCTIONS}
     elif method == "ping":
         result = {}

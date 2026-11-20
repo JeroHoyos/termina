@@ -16,7 +16,7 @@ use tauri::Emitter;
 use studio_engine::{check_talk, QUALITIES};
 use crate::Shared;
 
-const INSTRUCTIONS: &str = "Tools of the “ManimRS Studio” app. Each slide of a manim talk is \
+const INSTRUCTIONS: &str = "Tools of the “Termina” app. Each slide of a manim talk is \
 rendered on its own: rendering one never touches the others. Flow to create or change one: edit \
 its .py with your own tools, register it in diapositivas/__init__.py if it is new, place it in \
 main.py with “place”, render it with “render”, check it with “view” and finish with “show” so the \
@@ -75,7 +75,7 @@ async fn answer(s: &Arc<Shared>, msg: Value) -> Option<Value> {
         "initialize" => Ok(json!({
             "protocolVersion": params.get("protocolVersion").and_then(Value::as_str).unwrap_or("2025-06-18"),
             "capabilities": { "tools": {} },
-            "serverInfo": { "name": "studio", "title": "ManimRS Studio", "version": env!("CARGO_PKG_VERSION") },
+            "serverInfo": { "name": "studio", "title": "Termina", "version": env!("CARGO_PKG_VERSION") },
             "instructions": INSTRUCTIONS,
         })),
         "ping" => Ok(json!({})),

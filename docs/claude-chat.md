@@ -91,5 +91,5 @@ procedure for a slide. Claude reads the rules of the talk and makes the smallest
 renders the slide, examines its images and shows the slide to the user.
 
 Claude Code finds the skill in `.claude/skills/slides/SKILL.md` of the talks folder. The repository
-has a copy in `manimrs-studio/.claude/skills/slides/`. If the talks folder does not have the skill,
+has a copy in `termina/.claude/skills/slides/`. If the talks folder does not have the skill,
 copy it there.

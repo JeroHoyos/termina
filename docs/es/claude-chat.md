@@ -96,5 +96,5 @@ procedimiento para una diapositiva. Claude lee las reglas de la charla y hace el
 pequeño. Después renderiza la diapositiva, mira sus imágenes y se la muestra al usuario.
 
 Claude Code encuentra la skill en `.claude/skills/slides/SKILL.md` de la carpeta de charlas. El
-repositorio trae una copia en `manimrs-studio/.claude/skills/slides/`: cópiala a la carpeta de
+repositorio trae una copia en `termina/.claude/skills/slides/`: cópiala a la carpeta de
 charlas si no la tienes.

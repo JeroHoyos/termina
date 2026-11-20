@@ -25,7 +25,7 @@ async function start() {
 
 // Without uv nothing can be read or rendered: say what is missing instead of a Python error.
 function paintNoUv() {
-  ['#new', '#present', '#export', '#pending', '#talk-details', '#talk'].forEach(b => { $(b).disabled = true; });
+  ['#new', '#find', '#present', '#export', '#pending', '#talk-details', '#talk'].forEach(b => { $(b).disabled = true; });
   $('#list').innerHTML = '';
   $('#viewer').innerHTML = `<div class="empty-state no-talks"><b>uv is not installed</b>The app reads and renders the talks with uv, install it and open the app again
     <span class="actions"><button class="btn primary" id="e-uv">Get uv</button></span></div>`;
@@ -78,7 +78,7 @@ async function refresh() {
   }
   if (mine !== turn || asked !== talk) return;  // an old answer arrived
   data = d;
-  ['#new', '#present', '#export', '#talk-details'].forEach(b => { $(b).disabled = false; });
+  ['#new', '#find', '#present', '#export', '#talk-details'].forEach(b => { $(b).disabled = false; });
   document.querySelectorAll('#quality button').forEach(b => { b.disabled = false; });
   if (QUALITIES.includes(d.resolution) && !qualitySaving) quality = d.resolution;
   paintQuality();
@@ -96,9 +96,9 @@ async function refresh() {
   } else {
     paintViewer(false);
   }
-  const sig = JSON.stringify([data.slides.map(x => [key(x), x.status, x.thumbnail, x.review.status, x.quality]),
+  const sig = JSON.stringify([data.slides.map(x => [key(x), x.status, x.thumbnail, x.review.status, x.quality, x.group]),
     filter, sel, [...rendering()]]);
-  if (sig !== listSig) { listSig = sig; paintList(); }
+  if (sig !== listSig && !$('#list .group-name')) { listSig = sig; paintList(); }
   paintHeader();
 }
 
@@ -129,7 +129,8 @@ function paintTalks() {
   $('#talk').innerHTML = (talks.length ? '' : '<option value="" hidden>No talks</option>')
     + talks.map(t => `<option value="${esc(t.id)}">${esc(t.title)}</option>`).join('')
     + (talks.length ? '<hr>' : '')
-    + '<option value="__new">+ New talk</option><option value="__open">Open a talk…</option>';
+    + '<option value="__new">+ New talk</option><option value="__open">Open a talk…</option>'
+    + '<option value="__import">Import a presentation…</option>';
   $('#talk').value = talk;
 }
 
@@ -164,7 +165,7 @@ function letClaudeIn(path) {
 // Without talks: a way to make the first one or to open one.
 function paintNoTalks() {
   data = null; sel = null; listSig = '';
-  ['#new', '#present', '#export', '#pending', '#talk-details'].forEach(b => { $(b).disabled = true; });
+  ['#new', '#find', '#present', '#export', '#pending', '#talk-details'].forEach(b => { $(b).disabled = true; });
   document.querySelectorAll('#quality button').forEach(b => {
     b.disabled = true; b.classList.remove('on'); b.setAttribute('aria-pressed', 'false');
   });
@@ -187,6 +188,16 @@ function paintNoTalks() {
 async function pickFolder(title, start) {
   try { return await invoke('pick_folder', {title, start: start || null}); }
   catch (e) { toast(String(e)); return null; }
+}
+
+// A talk from a PowerPoint or a Beamer file, next to the last talk you made.
+async function importTalk() {
+  try {
+    const r = await invoke('import_talk', {place: load('studio.place', '') || root});
+    if (!r) return;
+    await enterTalk(r);
+    toast(`${r.title} has one slide for each page, render them to see it`);
+  } catch (e) { toast(String(e)); }
 }
 
 // “Open a talk”: the folder of a talk, its presentacion folder or its talk.manimrs. An empty folder

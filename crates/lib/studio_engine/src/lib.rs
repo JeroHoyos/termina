@@ -20,12 +20,15 @@ pub mod jobs;
 /// The desktop app gives a function that sends the event to the window; a library never knows Tauri.
 pub type Emit = Arc<dyn Fn(&str, Value) + Send + Sync>;
 
-/// Where the engine lives inside the talks folder.
-const SCRIPT: [&str; 3] = ["manimrs-studio", "engine", "studio.py"];
+/// The names the folder of the app can have inside the talks folder: the name of today, and the
+/// name from before the app was Termina.
+const FOLDERS: [&str; 2] = ["termina", "manimrs-studio"];
+/// Where the engine lives inside the folder of the app.
+const SCRIPT: [&str; 2] = ["engine", "studio.py"];
 /// The talks the studio knows, wherever they are (studio.py writes it, the app only reads it):
 /// `{"talks": [{"id": "charla-git", "path": "charla-git/presentacion"}]}`, the paths inside the
 /// talks folder relative to it.
-const REGISTRY: [&str; 2] = ["manimrs-studio", "talks.json"];
+const REGISTRY: &str = "talks.json";
 /// Each talk's own file with what it is (title, what it is about, language, resolution).
 pub const PROJECT_FILE: &str = "talk.manimrs";
 pub const QUALITIES: [&str; 3] = ["480p", "720p", "1080p"];
@@ -41,6 +44,8 @@ const NOT_SHARED: [&str; 8] = [
 #[derive(Clone)]
 pub struct Engine {
     pub root: PathBuf,
+    /// The folder of the app, inside `root`.
+    home: PathBuf,
     python: Vec<String>,
     script: PathBuf,
     /// The PATH for the engine when uv is installed but not on the PATH (see `path_with_uv`).
@@ -107,14 +112,15 @@ pub fn check_talk(talk: &str) -> Result<(), String> {
 impl Engine {
     pub fn new() -> Result<Self, String> {
         let root = find_root().ok_or(
-            "Can't find the talks folder (the one with manimrs-studio\\engine\\studio.py). Open the \
-             app from its shortcut in the manimrs-studio folder, or set the STUDIO_ROOT variable \
+            "Can't find the talks folder (the one with termina\\engine\\studio.py). Open the \
+             app from its shortcut in the termina folder, or set the STUDIO_ROOT variable \
              to the talks folder",
         )?;
-        let script = SCRIPT.iter().fold(root.clone(), |p, part| p.join(part));
+        let home = app_folder(&root).ok_or("Can't find the engine")?;
+        let script = SCRIPT.iter().fold(home.clone(), |p, part| p.join(part));
         let python = find_python(&root);
         let path = path_with_uv();
-        Ok(Engine { root, python, script, path, statuses: Arc::default(), registry: Arc::default() })
+        Ok(Engine { root, home, python, script, path, statuses: Arc::default(), registry: Arc::default() })
     }
 
     pub fn command<I, S>(&self, args: I) -> Command
@@ -253,7 +259,7 @@ impl Engine {
     /// The list of talks, read again only when its file changes. While studio.py replaces it the
     /// file can't be read for a moment: then the last list read is used.
     fn registry(&self) -> Talks {
-        let path = REGISTRY.iter().fold(self.root.clone(), |p, part| p.join(part));
+        let path = self.home.join(REGISTRY);
         let mut h = DefaultHasher::new();
         add_file(&mut h, &path);
         let stamp = h.finish();
@@ -386,8 +392,13 @@ pub fn kill_tree(pid: u32) {
     c.status().ok();
 }
 
+/// The folder of the app inside the talks folder `root`: the one that has the engine.
+fn app_folder(root: &Path) -> Option<PathBuf> {
+    FOLDERS.iter().map(|name| root.join(name)).find(|p| SCRIPT.iter().fold(p.clone(), |p, part| p.join(part)).is_file())
+}
+
 fn find_root() -> Option<PathBuf> {
-    let has_engine = |p: &Path| SCRIPT.iter().fold(p.to_path_buf(), |p, part| p.join(part)).is_file();
+    let has_engine = |p: &Path| app_folder(p).is_some();
     if let Some(r) = std::env::var_os("STUDIO_ROOT").map(PathBuf::from) {
         if has_engine(&r) {
             return Some(r);

@@ -1,6 +1,6 @@
 # Documentation style
 
-The documentation of ManimRS Studio uses ASD-STE100 Simplified Technical English (STE). STE makes
+The documentation of Termina uses ASD-STE100 Simplified Technical English (STE). STE makes
 the text easy to read for persons whose first language is not English. It also makes the text easy
 to translate.
 

@@ -5,11 +5,12 @@
 ## Charlas en cualquier carpeta
 
 La lista de arriba en la app muestra todas las charlas que conoce el motor. Las charlas pueden
-estar en cualquier carpeta. El motor guarda la lista en `manimrs-studio/talks.json`.
+estar en cualquier carpeta. El motor guarda la lista en `termina/talks.json`.
 
 | Acción | Cómo se hace | Resultado |
 | --- | --- | --- |
 | Crear una charla | Elige *+ New talk* al final de la lista. Escribe el título, de qué trata la charla y el idioma de sus diapositivas. Haz clic en *Choose folder* para elegir dónde queda. | La charla nueva tiene una diapositiva de título y una de cierre. Si escribiste de qué trata, Claude propone las diapositivas y espera tu aprobación. |
+| Importar una presentación | Elige *Import a presentation…* y selecciona un archivo de PowerPoint (`.pptx`) o de Beamer (`.tex`). | La charla nueva tiene una diapositiva por cada página, con su texto, sus imágenes y sus notas del orador. De Beamer también vienen las listas, las fórmulas en línea aparte y cada `\pause`. Las animaciones, los gráficos, las formas y los dibujos de TikZ no vienen. Los archivos de Keynote no se abren en Windows ni en Linux: expórtalos primero a PowerPoint. |
 | Abrir una charla | Elige *Open a talk…* y selecciona la carpeta de la charla. | La charla entra en la lista. Si la carpeta está vacía, se abre el formulario de charla nueva. |
 | Ver o cambiar una charla | Haz clic en el botón **ⓘ** junto a la lista. | Un formulario muestra el título, de qué trata, el autor y el idioma. *Show in folder* abre la carpeta de la charla. |
 | Quitar una charla de la lista | En el mismo formulario, haz clic en *Remove from the list…*. | El motor no borra archivos. Puedes abrir la charla otra vez más adelante. |
@@ -22,7 +23,7 @@ En *Open a talk…* puedes seleccionar cualquiera de estas carpetas:
 - Su carpeta `presentacion`, por ejemplo `charla-git\presentacion`.
 - La carpeta donde está su archivo `talk.manimrs`.
 
-La primera vez, el motor agrega las charlas que están junto a `manimrs-studio` y que tienen un
+La primera vez, el motor agrega las charlas que están junto a `termina` y que tienen un
 archivo `presentacion/main.py`.
 
 ## El archivo talk.manimrs
@@ -47,6 +48,7 @@ es la charla. Puedes leerlo y cambiarlo con un editor de texto:
 | `about` | Para quién es la charla y de qué trata. Claude lo lee antes de hacer diapositivas. |
 | `author` | Quien dicta la charla. |
 | `language` | El idioma de las diapositivas, como código: `es`, `en`, `pt-BR`. |
+| `numbers` | `on` pone un número de página en la esquina de cada diapositiva. Por defecto es `off`. |
 | `resolution` | La resolución de la charla: `480p`, `720p` o `1080p`. Una diapositiva sin resolución propia se renderiza a esta resolución, y solo así queda al día. |
 
 Si una charla no tiene `talk.manimrs`, el motor crea uno la primera vez que la abre. Toma el
@@ -113,6 +115,7 @@ cambia los archivos de las demás.
 | `_resolutions.json` | La resolución de cada diapositiva que tiene resolución propia. |
 | `_thumbnails/` | Una imagen por diapositiva. |
 | `_stills/` | Una imagen por pausa, para Claude. |
+| `_objects/` | Lo que muestra cada pausa de una diapositiva: los objetos, sus cajas y las líneas de código que los hicieron. *Edit on the slide* lo usa. |
 | `exported/` | Las exportaciones: paquete HTML, PDF, MP4 y GIF. |
 | `_data.lock`, `_render.lock` | Candados. Solo un proceso a la vez cambia estos archivos o renderiza la charla. |
 

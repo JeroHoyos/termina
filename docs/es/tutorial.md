@@ -11,7 +11,7 @@ La interfaz de la app está en inglés, así que los botones aparecen aquí con 
 
 ## 1. Abre la app
 
-1. Abre `manimrs-studio.exe`, o haz doble clic en su acceso directo.
+1. Abre `termina.exe`, o haz doble clic en su acceso directo.
 2. Mira la ventana. La primera vez, la app no tiene charlas.
 
 ![La ventana de la app sin charlas, con los botones New talk y Open a talk](../images/first-start.png)

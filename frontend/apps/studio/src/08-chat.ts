@@ -253,7 +253,7 @@ function onRateLimit(m) {
 function onControlRequest(m) {
   const req = m.request || {};
   if (req.subtype !== 'can_use_tool') {
-    send({type: 'control_response', response: {subtype: 'error', request_id: m.request_id, error: 'Not supported by ManimRS Studio'}});
+    send({type: 'control_response', response: {subtype: 'error', request_id: m.request_id, error: 'Not supported by Termina'}});
     return;
   }
   if (req.tool_name === 'AskUserQuestion') return questionCard(m.request_id, req);

@@ -130,6 +130,36 @@ pub fn pick_folder<W>(_window: &W, title: &str, start: Option<PathBuf>) -> Resul
     Ok((out.status.success() && !path.is_empty()).then(|| PathBuf::from(path)))
 }
 
+/// The file picker of the system, for files with these extensions. Ok(None) if it was closed.
+#[cfg(windows)]
+pub fn pick_file<W>(window: &W, title: &str, name: &str, extensions: &[&str]) -> Result<Option<PathBuf>, String>
+where
+    W: raw_window_handle::HasWindowHandle + raw_window_handle::HasDisplayHandle,
+{
+    Ok(rfd::FileDialog::new().set_title(title).add_filter(name, extensions).set_parent(window).pick_file())
+}
+
+#[cfg(not(windows))]
+pub fn pick_file<W>(_window: &W, title: &str, name: &str, extensions: &[&str]) -> Result<Option<PathBuf>, String> {
+    use studio_engine::on_path;
+    let patterns: Vec<String> = extensions.iter().map(|e| format!("*.{e}")).collect();
+    let mut c = if let Some(zenity) = on_path("zenity") {
+        let mut c = Command::new(zenity);
+        c.args(["--file-selection", "--title", title]);
+        c.arg(format!("--file-filter={name} | {}", patterns.join(" ")));
+        c
+    } else if let Some(kdialog) = on_path("kdialog") {
+        let mut c = Command::new(kdialog);
+        c.args(["--title", title, "--getopenfilename", "."]).arg(patterns.join(" "));
+        c
+    } else {
+        return Err("To choose a file, install zenity or kdialog".into());
+    };
+    let out = c.output().map_err(|e| e.to_string())?;
+    let path = String::from_utf8_lossy(&out.stdout).trim().to_string();
+    Ok((out.status.success() && !path.is_empty()).then(|| PathBuf::from(path)))
+}
+
 /// VS Code's command line launcher.
 #[cfg(not(windows))]
 fn vscode() -> Option<PathBuf> {

@@ -7,10 +7,10 @@ mismos archivos que la app. Puedes usar la app, el panel web y los comandos al m
 
 ## Abrir el panel web
 
-1. Haz doble clic en `studio.cmd`, en la carpeta `manimrs-studio`.
+1. Haz doble clic en `studio.cmd`, en la carpeta `termina`.
 2. Espera el navegador. Abre http://127.0.0.1:8765.
 
-Para abrirlo desde una terminal, escribe `.\studio` en la carpeta `manimrs-studio`. Para detenerlo,
+Para abrirlo desde una terminal, escribe `.\studio` en la carpeta `termina`. Para detenerlo,
 oprime Ctrl+C en la ventana de la terminal.
 
 El panel web solo le responde a su propia página. Un sitio web abierto en el navegador no puede

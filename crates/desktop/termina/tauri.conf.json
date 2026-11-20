@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "ManimRS Studio",
+  "productName": "Termina",
   "identifier": "dev.manimrs.studio",
   "build": {
     "frontendDist": "../../../frontend/apps/studio/dist"
@@ -10,7 +10,7 @@
     "windows": [
       {
         "label": "main",
-        "title": "ManimRS Studio",
+        "title": "Termina",
         "theme": "Light",
         "dragDropEnabled": false,
         "backgroundColor": "#f6f6f3",

@@ -1,4 +1,4 @@
-//! ManimRS Studio: desktop app to make the slides of your talks with Claude.
+//! Termina: desktop app to make the slides of your talks with Claude.
 //!
 //! - The window (frontend/apps/studio) shows the list of slides, the video of each one and a chat
 //!   with Claude. It calls the commands in `commands/`.
@@ -69,7 +69,7 @@ fn main() {
     {
         if tauri::webview_version().is_err() {
             return studio_shell::message(
-                "ManimRS Studio can't start",
+                "Termina can't start",
                 &format!("The app needs the Microsoft Edge WebView2 Runtime. Install it from {WEBVIEW2} and open the app again"),
             );
         }
@@ -77,11 +77,11 @@ fn main() {
     // Without the engine there is nothing to show: say so instead of closing without a word.
     let engine = match Engine::new() {
         Ok(e) => e,
-        Err(e) => return studio_shell::message("ManimRS Studio can't start", &e),
+        Err(e) => return studio_shell::message("Termina can't start", &e),
     };
     let token = match server::new_token() {
         Ok(t) => t,
-        Err(e) => return studio_shell::message("ManimRS Studio can't start", &e),
+        Err(e) => return studio_shell::message("Termina can't start", &e),
     };
     let app = tauri::Builder::default()
         .plugin(tauri::plugin::Builder::<tauri::Wry>::new("stay").on_navigation(|_, url| stays_in_app(url)).build())
@@ -113,11 +113,16 @@ fn main() {
             commands::talks::forget_talk,
             commands::talks::show_talk_folder,
             commands::talks::pick_folder,
+            commands::talks::import_talk,
             commands::slides::status,
             commands::slides::jobs,
             commands::slides::render,
             commands::slides::edit,
             commands::slides::export,
+            commands::slides::source,
+            commands::slides::find,
+            commands::slides::objects,
+            commands::slides::insert_picture,
             commands::slides::cancel,
             commands::slides::present,
             commands::slides::review,
@@ -132,7 +137,7 @@ fn main() {
         .build(tauri::generate_context!());
     let app = match app {
         Ok(a) => a,
-        Err(e) => return studio_shell::message("ManimRS Studio can't start", &e.to_string()),
+        Err(e) => return studio_shell::message("Termina can't start", &e.to_string()),
     };
 
     app.run(|app, event| {

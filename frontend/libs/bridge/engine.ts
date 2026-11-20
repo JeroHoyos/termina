@@ -9,7 +9,7 @@ interface SlidePart {
   loop?: boolean;
 }
 
-type SlideStatus = 'new' | 'changed' | 'transition' | 'resolution' | 'rendered' | 'off';
+type SlideStatus = 'new' | 'changed' | 'transition' | 'resolution' | 'number' | 'rendered' | 'off';
 type ReviewStatus = '' | 'approved' | 'changes';
 
 interface SlideReview {
@@ -32,6 +32,10 @@ interface Slide {
   thumbnail?: string;
   /** The resolution of the slide, if it is different from the resolution of the talk. */
   resolution?: string;
+  /** The speaker notes of the slide. Empty if it has none. */
+  speaker: string;
+  /** The speaker notes of each pause that has notes of its own: pause number (from 1) to text. */
+  pause_notes: Record<string, string>;
 }
 
 interface TalkStatus {

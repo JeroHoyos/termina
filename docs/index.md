@@ -1,6 +1,6 @@
-# ManimRS Studio
+# Termina
 
-ManimRS Studio makes the slides of a [Manim Slides](https://github.com/jeertmans/manim-slides) talk
+Termina makes the slides of a [Manim Slides](https://github.com/jeertmans/manim-slides) talk
 one slide at a time, with Claude. It is a desktop app for Windows and Linux, a web panel and a set of
 commands. All three use the same engine and the same files.
 
@@ -34,6 +34,6 @@ Each term in this documentation has only one definition.
 | Slide | One `self.slide_<name>()` call in `construct()`. A slide can have one or more pauses. |
 | Pause | A stop in a slide, made by `next_slide()`. The presenter waits at each pause. |
 | Render | To make the videos of a slide with Manim. As a noun, the videos that a render makes. |
-| Talks folder | The folder that holds the `manimrs-studio` folder. |
+| Talks folder | The folder that holds the `termina` folder. |
 | Engine | The Python program `engine/studio.py`. |
 | App | The desktop app in `crates/` (Rust) and `frontend/` (TypeScript). |
