@@ -1,4 +1,8 @@
 
+<p align="center">
+  <img src="crates/desktop/termina/icons/icon.svg" width="96" alt="The Termina logo">
+</p>
+
 <h1 align="center">Termina</h1>
 
 <p align="center">
@@ -7,13 +11,13 @@
   <img src="https://img.shields.io/badge/status-pre--release%200.6-b45309?style=for-the-badge" alt="Pre-release 0.6" />
 </p>
 
-Termina is an open-source desktop app for talks made with
+Termina is an open-source desktop app for talks, videos and reels made with
 [Manim Slides](https://github.com/jeertmans/manim-slides). Render only the slide that changed,
 point at what is wrong, and let an agent fix it.
 
-![A short tour of the app: three 3D slides of a talk about AI, a mark on a slide, the render of only what changed, the approval and the export](docs/images/trailer.gif)
+![A short tour of the app: the slides of a talk about circles, a mark on a slide, the render of only what changed, the approval, the export, and a new reel with 8-bit music](docs/images/trailer.gif)
 
-[Watch the trailer as a video](docs/images/trailer.mp4)
+[Watch the trailer as a video, with its 8-bit music](docs/images/trailer.mp4)
 
 > [!IMPORTANT]
 > **This is a pre-release. Version 1.0 is not out.** There is no installer, Linux is experimental,
@@ -80,18 +84,20 @@ The app runs on Windows 10 and 11. Linux is experimental and macOS is not suppor
 
 ## Usage
 
-1. Start the app and click *New talk*.
+1. Start the app and click *New talk*. In *What you make*, select a talk, a video or a reel.
 2. Click *Render 2 pending*. The first time, the talk installs its Python packages.
 3. Click *Mark on the slide*, or write what to change in *Review*. Then click *Send to Claude*.
 4. When the slide is correct, click *Approve*.
-5. Click *Present* for full screen, or *Export* for HTML, PDF or MP4.
+5. Click *Present* for full screen, or *Export* for HTML, PDF or MP4. A video or a reel exports
+   to MP4.
 
 The [tutorial](docs/tutorial.md) shows each step with images. The [documentation](docs/index.md)
 has the rest.
 
 ## Status and Roadmap
 
-- **Good today:** render one slide, review with marks, the Claude chat, the exports, Windows.
+- **Good today:** render one slide, review with marks, the Claude chat, the exports, videos and
+  reels, Windows.
 - **Thin:** Linux, other agents, the types of the window code.
 - **Not started:** installers, macOS, the interface in Spanish.
 
@@ -126,10 +132,11 @@ Termina is free software under the [MIT License](LICENSE). The app includes mark
 DOMPurify (Apache-2.0 or MPL-2.0), Space Grotesk and IBM Plex Mono (SIL Open Font License 1.1), in
 `frontend/apps/studio/public/`.
 
-Termina stands on [Manim Community](https://www.manim.community/) and
+Termina stands on [Manim Community](https://www.manim.community/),
+[ManimGX](https://github.com/academa-labs/manimgx) and
 [Manim Slides](https://github.com/jeertmans/manim-slides). The
 [3Blue1Brown videos](https://github.com/3b1b/videos) are the model for the example talks,
 [Recordly](https://github.com/webadderallorg/Recordly) for this page and
 [ArtCraft](https://github.com/storytold/artcraft) for the layout of the code. The
-project is not a part of Manim Community, Manim Slides or Anthropic. Claude is a trademark of
+project is not a part of Manim Community, ManimGX, Manim Slides or Anthropic. Claude is a trademark of
 Anthropic.
