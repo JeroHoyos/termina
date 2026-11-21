@@ -620,6 +620,40 @@ def test_render_lock(talk):
     assert not second.is_alive(), "it must start when the first one ends"
 
 
+def draws(results, saves=()):
+    """A fake `draw` for studio._draw: each call gives the next result and saves `saves`."""
+    calls, saved = [], []
+
+    def draw(cmd, slides):
+        calls.append(("gx" if str(studio.SCENE_GX) in cmd else "ce", [s.name for s in slides]))
+        saved.extend(saves[len(calls) - 1] if len(saves) >= len(calls) else [])
+        return results[len(calls) - 1]
+
+    return draw, calls, saved
+
+
+@pytest.mark.parametrize("result, saves, expected", [
+    # ManimGX renders all.
+    ((0, ["STUDIO: saved a"]), [["a", "b"]], [("gx", ["a", "b"])]),
+    # ManimGX stops with an error of Python after a: Manim CE renders only b.
+    ((1, ["Traceback (most recent call last):"]), [["a"]], [("gx", ["a", "b"]), ("ce", ["b"])]),
+    # uv cannot install ManimGX: Manim CE renders all.
+    ((2, ["error: Failed to fetch"]), [[]], [("gx", ["a", "b"]), ("ce", ["a", "b"])]),
+    # A cancelled render: the process is killed, without an error. Manim CE does not start.
+    ((1, ["STUDIO: drawing a (1/2)"]), [[]], [("gx", ["a", "b"])]),
+    # ManimGX saved all, then failed: nothing is left for Manim CE.
+    ((1, ["Traceback (most recent call last):"]), [["a", "b"]], [("gx", ["a", "b"])]),
+])
+def test_manim_ce_renders_only_what_manimgx_could_not(result, saves, expected):
+    draw, calls, saved = draws([result, (0, [])], saves)
+    targets = [studio.Slide(i + 1, i, f"slide_{n}", n, "", f"diapositivas/{n}.py", True)
+               for i, n in enumerate("ab")]
+    said = []
+    studio._draw(draw, targets, saved, "720p", said.append)
+    assert calls == expected
+    assert bool(said) == (len(calls) == 2)
+
+
 def png(width, height):
     """An 8-bit RGB PNG, like the frames that ffmpeg writes. The pixels go in two IDAT chunks."""
     def chunk(kind, data):

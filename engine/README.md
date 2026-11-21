@@ -7,6 +7,7 @@ web panel and the commands use it.
 | --- | --- | --- |
 | `studio.py` | The engine and its commands. | [Command reference](../docs/cli-reference.md) |
 | `scene.py` | Renders only the slides that the engine asks for. | [How it works](../docs/how-it-works.md) |
+| `scene_gx.py` | Runs `scene.py` with ManimGX in place of Manim CE. | [How it works](../docs/how-it-works.md#manimgx-and-manim-ce) |
 | `present.py` | The presenter of Manim Slides, with a full screen mode that fits the screen. | [How it works](../docs/how-it-works.md#the-presenter) |
 | `panel.html` | The web panel. | [Web panel](../docs/web-panel.md) |
 

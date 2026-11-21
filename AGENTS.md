@@ -27,6 +27,7 @@ desktop app for Windows and Linux (Rust and Tauri), an engine in Python and a we
 | --- | --- |
 | `engine/studio.py` | The engine and its commands. Only the Python standard library. |
 | `engine/scene.py` | The Manim scene that renders only the selected slides. It runs in the environment of the talk. |
+| `engine/scene_gx.py` | Runs `scene.py` with ManimGX in place of Manim CE. The engine tries it first. If it fails, Manim CE renders. |
 | `engine/present.py` | The presenter of Manim Slides, with a correct full screen mode. |
 | `engine/panel.html` | The web panel. |
 | `engine/mcp_server.py` | The MCP server for other agents. It gives the same tools as `crates/desktop/termina/src/mcp.rs`. Keep the two in step. |

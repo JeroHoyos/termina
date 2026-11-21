@@ -90,6 +90,9 @@ HERE = Path(__file__).resolve().parent
 # The talks folder: this file lives in <talks>/termina/engine/.
 ROOT = HERE.parent.parent
 SCENE = HERE / "scene.py"
+# scene.py drawn by ManimGX, which is faster than Manim CE. Manim CE draws what it cannot.
+SCENE_GX = HERE / "scene_gx.py"
+MANIMGX = "manimgx>=0.1.1,<0.2"
 PANEL = HERE / "panel.html"
 # The talks the Studio knows, wherever they are: [{"id": "charla-git", "path": "…"}]. A path inside
 # the talks folder is kept relative to it, so the whole folder can be moved.
@@ -918,13 +921,14 @@ def _render_at(talk: Talk, targets: list[Slide], quality: str, log, on_start) ->
     shared = shared_fingerprint(talk, plan)
     current = {s.name: s for s in plan if s.active}
     targets = [current[s.name] for s in targets if s.name in current]
-    wanted = {str(s.index): {"method": s.method, "name": s.name} for s in targets}
-    cmd = ["uv", "run", "python", "-m", "manim_slides", "render", "--quality",
-           QUALITIES[quality], "--progress_bar", "none", str(SCENE), "Slides"]
-    env = _env(STUDIO_TARGETS=json.dumps(wanted), STUDIO_TALK=str(talk.pres),
-               STUDIO_NUMBERS=project_info(talk)["numbers"],
-               STUDIO_VERTICAL="on" if vertical(talk) else "off")
     saved = []
+
+    def draw(cmd, slides):
+        wanted = {str(s.index): {"method": s.method, "name": s.name} for s in slides}
+        env = _env(STUDIO_TARGETS=json.dumps(wanted), STUDIO_TALK=str(talk.pres),
+                   STUDIO_NUMBERS=project_info(talk)["numbers"], STUDIO_QUALITY=quality,
+                   STUDIO_VERTICAL="on" if vertical(talk) else "off")
+        return run(cmd, talk.pres, progress, env, on_start)
 
     def progress(text):
         """A slide counts as soon as scene.py saves it, so the app shows it while the others
@@ -941,12 +945,24 @@ def _render_at(talk: Talk, targets: list[Slide], quality: str, log, on_start) ->
             log("Setting up the talk's Python, the first time takes a few minutes…")
         log(f"Rendering {len(targets)} slide(s) of {talk.id} at {quality}…")
         started = time.time()
-        code, lines = run(cmd, talk.pres, progress, env, on_start)
+        code, lines = _draw(draw, targets, saved, quality, log)
     if code != 0:
         log("The render failed, last lines:")
         _fail(lines, 30, "the render failed", log)
     log(f"Done: {len(saved)} saved in {time.time() - started:.0f} s")
     return saved
+
+
+def _draw(draw, targets: list[Slide], saved: list[str], quality: str, log) -> tuple[int, list[str]]:
+    """ManimGX draws the slides. If it stops with an error of Python or of uv (a cancelled
+    render gives neither), Manim CE draws the slides that are not saved."""
+    code, lines = draw(["uv", "run", "--with", MANIMGX, "python", str(SCENE_GX)], targets)
+    left = [s for s in targets if s.name not in saved]
+    if not left or code == 0 or not any(l.startswith(("Traceback", "error:")) for l in lines):
+        return code, lines
+    log(f"ManimGX could not draw {len(left)} slide(s), Manim CE draws them…")
+    return draw(["uv", "run", "python", "-m", "manim_slides", "render", "--quality",
+                 QUALITIES[quality], "--progress_bar", "none", str(SCENE), "Slides"], left)
 
 
 def _fail(lines: list[str], last: int, message: str, log):

@@ -33,6 +33,21 @@ The app shows each slide while the other slides render.
 
 If `main.py` changes during a render, `scene.py` stops with an error. Render again after the change.
 
+### ManimGX and Manim CE
+
+The engine renders with [ManimGX](https://github.com/academa-labs/manimgx) first. ManimGX has the
+API of Manim CE and a GPU core in Rust. With the example talks, the render of a talk takes half
+the time.
+
+`engine/scene_gx.py` runs `scene.py` with ManimGX in place of Manim CE and of the `Slide` class of
+Manim Slides. It writes each pause to its own MP4 file and saves `diapos/<name>.json` in the format
+of Manim Slides. Thus the presenter, the stills and the app do not change. The engine runs it with
+`uv run --with manimgx` in the environment of the talk. The talk does not get a new dependency.
+
+ManimGX does not have all of Manim CE. If a talk imports a part of Manim CE that ManimGX does not
+have, ManimGX stops with an error. Then Manim CE renders the slides that ManimGX did not save. A
+cancelled render does not go to Manim CE.
+
 ## When a slide must be rendered again
 
 The engine keeps three hashes for each render in `_renders.json`:
