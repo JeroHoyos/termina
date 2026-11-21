@@ -1,4 +1,3 @@
-Language: EN | [Español](README.es.md)
 
 <h1 align="center">Termina</h1>
 
@@ -40,6 +39,8 @@ it.
 - **Your agent, your model.** The tools of the app are an MCP server. Refer to
   [Other agents](docs/other-agents.md).
 - **Present and export.** Full screen, HTML, PDF, MP4 and GIF.
+- **A video or a reel.** A video has no pauses: its scenes play one after the other in one MP4. A
+  reel is a vertical video at 9:16, for the phone. Put music under it, or make new 8-bit music.
 
 <p>
   <img src="docs/images/mark.png" width="700" alt="Marks on a slide: a point, a circle and an arrow">
@@ -85,8 +86,8 @@ The app runs on Windows 10 and 11. Linux is experimental and macOS is not suppor
 4. When the slide is correct, click *Approve*.
 5. Click *Present* for full screen, or *Export* for HTML, PDF or MP4.
 
-The [tutorial](docs/tutorial.md) shows each step with images. All the
-[documentation](docs/index.md) is also in [Spanish](docs/es/index.md).
+The [tutorial](docs/tutorial.md) shows each step with images. The [documentation](docs/index.md)
+has the rest.
 
 ## Status and Roadmap
 

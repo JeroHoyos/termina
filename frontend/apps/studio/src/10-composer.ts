@@ -189,18 +189,47 @@ function readBase64(f, done) {
   reader.readAsDataURL(f);
 }
 
+// The text of a Word file, one paragraph on each line: word/document.xml from inside its zip.
+async function docxText(f): Promise<string> {
+  const bytes = new Uint8Array(await f.arrayBuffer()), view = new DataView(bytes.buffer);
+  let end = bytes.length - 22;
+  while (end >= 0 && view.getUint32(end, true) !== 0x06054b50) end--;
+  if (end < 0) throw new Error();
+  let at = view.getUint32(end + 16, true);
+  for (let n = view.getUint16(end + 10, true); n > 0; n--) {
+    const nameLength = view.getUint16(at + 28, true);
+    const name = new TextDecoder().decode(bytes.subarray(at + 46, at + 46 + nameLength));
+    if (name === 'word/document.xml') {
+      const method = view.getUint16(at + 10, true), size = view.getUint32(at + 20, true);
+      const local = view.getUint32(at + 42, true);
+      const start = local + 30 + view.getUint16(local + 26, true) + view.getUint16(local + 28, true);
+      let data = new Blob([bytes.subarray(start, start + size)]);
+      if (method === 8) data = await new Response(data.stream().pipeThrough(new DecompressionStream('deflate-raw'))).blob();
+      const doc = new DOMParser().parseFromString(await data.text(), 'application/xml');
+      const W = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main';
+      return [...doc.getElementsByTagNameNS(W, 'p')]
+        .map(p => [...p.getElementsByTagNameNS(W, 't')].map(t => t.textContent).join('')).join('\n');
+    }
+    at += 46 + nameLength + view.getUint16(at + 30, true) + view.getUint16(at + 32, true);
+  }
+  throw new Error();
+}
+
 const TEXT_FILE = /\.(txt|md|py|js|ts|json|toml|yaml|yml|csv|html|css|rs|xml|ini|cfg|log|tex|sh|ps1|bat|cmd)$/i;
 function addFiles(files) {
   for (const f of files) {
     const reader = new FileReader();
-    if (f.type.startsWith('image/') || f.type === 'application/pdf') {
+    if (/\.docx$/i.test(f.name)) {
+      docxText(f).then(text => { chat.attachments.push({kind: 'text', name: f.name, text}); paintAttachments(); },
+        () => toast(`Termina can not read ${f.name}`));
+    } else if (f.type.startsWith('image/') || f.type === 'application/pdf') {
       readBase64(f, a => { chat.attachments.push(a); paintAttachments(); });
     } else if (f.type.startsWith('text/') || TEXT_FILE.test(f.name)) {
       if (f.size > 400e3) { toast(`${f.name} is too big to attach as text, mention it with @ instead`); continue; }
       reader.onload = () => { chat.attachments.push({kind: 'text', name: f.name, text: String(reader.result)}); paintAttachments(); };
       reader.readAsText(f);
     } else {
-      toast(`${f.name} can't be attached, images, PDFs and text files can`);
+      toast(`${f.name} can't be attached, images, PDFs, Word and text files can`);
     }
   }
 }

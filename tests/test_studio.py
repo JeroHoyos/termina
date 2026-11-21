@@ -87,6 +87,43 @@ def test_new_talk_refuses_bad_input(talk):
         studio.new_talk("Other", folder="con")
 
 
+def test_new_video_and_reel(talk):
+    video = studio.new_talk("Docker from scratch", language="en", kind="video")
+    assert video.id == "video-docker-from-scratch"
+    assert names(video) == ["title", "end"]
+    assert studio.is_video(video) and not studio.vertical(video)
+    assert "next_slide" in (video.pres / "diapositivas" / "__init__.py").read_text("utf-8")
+    assert not (video.pres / ".manim-slides.toml").exists()
+    with pytest.raises(RuntimeError, match="no presenter"):
+        studio.present(video)
+    reel = studio.new_talk("Docker from scratch", kind="reel")
+    assert reel.id == "reel-docker-from-scratch" and studio.vertical(reel)
+    with pytest.raises(RuntimeError, match="kind"):
+        studio.new_talk("Other", kind="movie")
+
+
+def test_a_new_shape_renders_again(talk):
+    plan = studio.read_plan(talk)
+    studio._record(talk, plan[:1], studio.shared_fingerprint(talk, plan), "1080p")
+    talk.path(f"{plan[0].name}.json").write_text("{}", "utf-8")  # the status needs it too
+    status = lambda: studio.talk_status(talk)["slides"][0]["status"]
+    assert status() == "up_to_date"
+    studio.save_project(talk, {"kind": "reel"})
+    assert status() == "resolution"
+
+
+def test_chiptune(talk):
+    with pytest.raises(RuntimeError, match="a talk has no music"):
+        studio.chiptune(talk)
+    video = studio.new_talk("Song", kind="video")
+    assert "8-bit music" in studio.chiptune(video)
+    wav = video.pres / studio.CHIPTUNE_FILE
+    assert wav.read_bytes()[:4] == b"RIFF"
+    assert studio.project_info(video)["music"] == studio.CHIPTUNE_FILE
+    with pytest.raises(RuntimeError, match="music"):
+        studio.save_project(video, {"music": "../x.mp3"})
+
+
 def test_register_gives_unique_ids(talk, tmp_path):
     (tmp_path / "a").mkdir()
     (tmp_path / "b").mkdir()
@@ -796,7 +833,7 @@ def test_mcp_server_answers_an_agent(talk, monkeypatch):
     assert mcp_server.answer({"jsonrpc": "2.0", "method": "notifications/initialized"}) is None
     tools = mcp_server.answer({"jsonrpc": "2.0", "id": 2, "method": "tools/list"})["result"]["tools"]
     assert {t["name"] for t in tools} == {"talks", "slides", "notes", "render", "view", "place",
-                                          "export", "present"}
+                                          "export", "new", "chiptune", "present"}
     assert mcp_server.answer({"jsonrpc": "2.0", "id": 3, "method": "nope"})["error"]["code"] == -32601
 
     def tool(name, **arguments):

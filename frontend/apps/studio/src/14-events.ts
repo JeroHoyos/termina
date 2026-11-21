@@ -160,8 +160,6 @@ $('#viewer').onclick = e => {
     'b-image': () => $('#r-file').click(),
     'b-mark': startMark,
     'b-canvas': startCanvas,
-    'b-save-code': () => act(invoke('source', {talk, line: s.line, text: $('#source').value})
-      .then(() => { $('#b-save-code').disabled = true; }), 'Code saved'),
     'b-send': async () => {
       if (!note) return askNote();
       await invoke('review', {talk, name: s.name, status: 'changes', note}).catch(() => {});

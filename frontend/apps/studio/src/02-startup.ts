@@ -78,6 +78,9 @@ async function refresh() {
   }
   if (mine !== turn || asked !== talk) return;  // an old answer arrived
   data = d;
+  // A video has no presenter, and a reel is vertical.
+  document.body.classList.toggle('video', (d.project?.kind || 'slides') !== 'slides');
+  document.body.classList.toggle('reel', d.project?.kind === 'reel');
   ['#new', '#find', '#present', '#export', '#talk-details'].forEach(b => { $(b).disabled = false; });
   document.querySelectorAll('#quality button').forEach(b => { b.disabled = false; });
   if (QUALITIES.includes(d.resolution) && !qualitySaving) quality = d.resolution;

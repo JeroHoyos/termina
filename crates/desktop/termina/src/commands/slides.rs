@@ -67,12 +67,13 @@ pub fn render(s: St<'_>, talk: String, what: Value, quality: String) -> Result<(
 }
 
 /// Changes to the talk: new, move, rename, group, duplicate, hide, restore, delete, resolution and
-/// the speaker notes. Returns what studio.py answered (for “new” and “duplicate”, a JSON with the created slide).
+/// the speaker notes, and the 8-bit music of a video. Returns what studio.py answered (for “new” and
+/// “duplicate”, a JSON with the created slide).
 #[tauri::command]
 pub async fn edit(s: St<'_>, talk: String, args: Vec<String>) -> Result<String, String> {
-    const ORDERS: [&str; 14] = [
+    const ORDERS: [&str; 15] = [
         "new", "move", "rename", "group", "duplicate", "hide", "restore", "delete", "resolution", "speaker",
-        "theme", "move-object", "retext", "insert",
+        "theme", "move-object", "retext", "insert", "chiptune",
     ];
     check_talk(&talk)?;
     if !args.first().is_some_and(|o| ORDERS.contains(&o.as_str())) {
@@ -83,27 +84,6 @@ pub async fn edit(s: St<'_>, talk: String, args: Vec<String>) -> Result<String, 
         let mut all = vec![talk];
         all.extend(args);
         e.text(&all).map(|t| t.trim().to_string())
-    })
-    .await
-}
-
-/// The code of the slide at `line` of main.py, as `{text}`. With `text`, replaces it first: the
-/// engine refuses code with a syntax error.
-#[tauri::command]
-pub async fn source(s: St<'_>, talk: String, line: u32, text: Option<String>) -> Result<Value, String> {
-    check_talk(&talk)?;
-    let e = s.engine.clone();
-    in_thread(move || {
-        let mut args = vec![talk, "source".to_string(), format!("--line={line}")];
-        // The new code goes in a file: a command line is too short for it.
-        let file = std::env::temp_dir().join(format!("termina-source-{}.py", std::process::id()));
-        if let Some(text) = text {
-            std::fs::write(&file, text).map_err(|e| e.to_string())?;
-            args.push(format!("--from={}", file.display()));
-        }
-        let answer = e.json(args);
-        std::fs::remove_file(&file).ok();
-        answer
     })
     .await
 }

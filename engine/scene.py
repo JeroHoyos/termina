@@ -17,7 +17,8 @@ what is needed from it:
 
 While a target is built, the scene writes down what each pause shows (every object, its box and
 the line of the talk that made it) in `diapos/_objects/<name>.json`: the app edits on the slide
-with it. With STUDIO_NUMBERS = on, each slide shows its page number.
+with it. With STUDIO_NUMBERS = on, each slide shows its page number. With STUDIO_VERTICAL = on, the
+video is 9:16, for a reel.
 
 As soon as a target ends, it is saved in its own `diapos/<name>.json` and `STUDIO: saved <name>`
 is printed, so the studio shows it while the others render. The other slides that are already
@@ -33,6 +34,12 @@ from manim import DR, Group, ImageMobject, Mobject, Text, VGroup, config
 from manim.mobject.text.tex_mobject import SingleStringMathTex
 from manim.utils.exceptions import EndSceneEarlyException
 from manim_slides.slide import Slide
+
+if os.environ.get("STUDIO_VERTICAL") == "on":
+    # A reel: the pixels of the quality on their side, and a frame 8 units wide, so a layout made
+    # for the 8 units of height of a landscape frame fits its width.
+    config.pixel_width, config.pixel_height = config.pixel_height, config.pixel_width
+    config.frame_width, config.frame_height = 8.0, 8.0 * 16 / 9
 
 sys.path.insert(0, os.environ.get("STUDIO_TALK", os.getcwd()))
 import main  # noqa: E402  (the talk's main.py)

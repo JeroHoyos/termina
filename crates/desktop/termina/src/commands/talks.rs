@@ -16,7 +16,8 @@ pub async fn talks(s: St<'_>) -> Result<Value, String> {
 }
 
 /// Creates a talk with a title slide and a closing slide in `place`/`folder` (the talks folder and
-/// charla-<title> if they are not given); returns `{id, title, path}`.
+/// charla-<title> if they are not given); returns `{id, title, path}`. `kind` "video" or "reel"
+/// makes a video with a title scene and an end scene.
 #[tauri::command]
 #[allow(clippy::too_many_arguments)]
 pub async fn new_talk(
@@ -26,6 +27,7 @@ pub async fn new_talk(
     language: String,
     place: Option<String>,
     folder: Option<String>,
+    kind: Option<String>,
 ) -> Result<Value, String> {
     let e = s.engine.clone();
     in_thread(move || {
@@ -35,6 +37,12 @@ pub async fn new_talk(
             format!("--about={about}"),
             format!("--language={language}"),
         ];
+        match kind.as_deref() {
+            Some("video") => args.push("--video".into()),
+            Some("reel") => args.push("--reel".into()),
+            None | Some("slides") => {}
+            Some(_) => return Err("The kind is slides, video or reel".into()),
+        }
         if let Some(p) = place.filter(|p| !p.trim().is_empty()) {
             if !Path::new(&p).is_absolute() {
                 return Err("Choose the folder that will hold it".into());
@@ -82,7 +90,7 @@ pub async fn import_talk(s: St<'_>, window: tauri::WebviewWindow, place: String)
 /// Changes what talk.manimrs says (title, what it is about, resolution…); returns all its fields.
 #[tauri::command]
 pub async fn save_talk(s: St<'_>, talk: String, fields: HashMap<String, String>) -> Result<Value, String> {
-    const FIELDS: [&str; 6] = ["title", "about", "author", "language", "resolution", "numbers"];
+    const FIELDS: [&str; 8] = ["title", "about", "author", "language", "resolution", "numbers", "kind", "music"];
     check_talk(&talk)?;
     let mut args = vec![talk, "info".to_string(), "--json".into()];
     for (k, v) in fields {

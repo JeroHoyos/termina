@@ -124,11 +124,20 @@ fn tools() -> Value {
               "method": { "type": "string", "description": "The slide's method, like slide_git_stash." },
               "after": slide
           }, "required": ["talk", "method"] } },
-        { "name": "export", "description": "Builds the package for another device with what is already rendered: HTML folder in a .zip, or a PDF with the last frame of each pause. Only if the user asks.",
+        { "name": "export", "description": "Builds the package for another device with what is already rendered: HTML folder in a .zip, a PDF with the last frame of each pause, or one MP4 (with the music of a video). Only if the user asks.",
           "inputSchema": { "type": "object", "properties": {
               "talk": talk,
-              "format": { "type": "string", "enum": ["html", "pdf"] }
+              "format": { "type": "string", "enum": ["html", "pdf", "mp4"] }
           }, "required": ["talk"] } },
+        { "name": "new", "description": "Makes a new talk (a title slide and a closing slide), a new video or a new reel (a title scene and an end scene) in the talks folder, and adds it to the list. Only if the user asks for one. A video has no pauses: each scene ends with self.next_slide(), a cut, and the MP4 export joins them. A reel is a video at 9:16: its frame is 8 units wide and 14.2 high.",
+          "inputSchema": { "type": "object", "properties": {
+              "title": { "type": "string" },
+              "about": { "type": "string", "description": "What it is about." },
+              "language": { "type": "string", "description": "A code like es or en." },
+              "kind": { "type": "string", "enum": ["slides", "video", "reel"] }
+          }, "required": ["title"] } },
+        { "name": "chiptune", "description": "Makes new 8-bit music for a video or a reel: a loop that plays under its whole MP4. Each call makes a different tune.",
+          "inputSchema": { "type": "object", "properties": { "talk": talk }, "required": ["talk"] } },
         { "name": "present", "description": "Opens the full-screen presenter. Only if the user asks.",
           "inputSchema": { "type": "object", "properties": { "talk": talk, "start": slide }, "required": ["talk"] } }
     ])
@@ -145,7 +154,7 @@ fn failure(e: String) -> Value {
 fn call(s: &Shared, name: &str, a: &Value) -> Value {
     let field = |k: &str| a.get(k).and_then(Value::as_str).unwrap_or("").trim().to_string();
     let talk = field("talk");
-    if name != "talks" {
+    if name != "talks" && name != "new" {
         if let Err(e) = check_talk(&talk) {
             return failure(format!("{e}: use one of the talks the “talks” tool lists."));
         }
@@ -170,6 +179,23 @@ fn call(s: &Shared, name: &str, a: &Value) -> Value {
             s.engine.text(&args).map(|t| vec![text(t)])
         }
         "export" => export(s, &talk, &field("format")),
+        "chiptune" => s.engine.text([talk.as_str(), "chiptune"]).map(|t| vec![text(t)]),
+        "new" => {
+            let mut args = vec![
+                "new-talk".to_string(),
+                format!("--about={}", field("about")),
+                format!("--language={}", Some(field("language")).filter(|l| !l.is_empty()).unwrap_or("es".into())),
+            ];
+            match field("kind").as_str() {
+                "video" => args.push("--video".into()),
+                "reel" => args.push("--reel".into()),
+                "" | "slides" => {}
+                _ => return failure("The kind is slides, video or reel.".into()),
+            }
+            // After “--” everything is title, even if it starts with a dash.
+            args.extend(["--".into(), field("title")]);
+            s.engine.text(&args).map(|t| vec![text(t)])
+        }
         "present" => {
             let start = field("start");
             let start = (!start.is_empty()).then_some(start.as_str());
@@ -254,8 +280,8 @@ fn view(s: &Shared, talk: &str, slide: &str) -> Result<Vec<Value>, String> {
 
 fn export(s: &Shared, talk: &str, format: &str) -> Result<Vec<Value>, String> {
     let mut args = vec![talk.to_string(), "export".into()];
-    if format == "pdf" {
-        args.push("--pdf".into());
+    if format == "pdf" || format == "mp4" {
+        args.push(format!("--{format}"));
     }
     let end = s
         .jobs

@@ -13,7 +13,8 @@ desktop app for Windows and Linux (Rust and Tauri), an engine in Python and a we
 
 ## Language
 
-- Code, comments, interface text, commands and documentation are in English.
+- Code, comments, interface text, commands and documentation are in English. Do not make a copy
+  of the documentation in Spanish or in other languages.
 - Write the documentation in ASD-STE100 Simplified Technical English. The rules are in
   `docs/writing-style.md`.
 - The content of the talks can be in any language. The folder names of the talk format are in

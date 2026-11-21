@@ -146,12 +146,6 @@ The app can move an object only if the code gives it a name of its own. If the o
 group, the group moves. If the code makes the object in a loop, mark it and ask Claude to move it.
 Render the slide before you edit it again.
 
-## The code of a slide
-
-Open *Code*, below *Speaker notes*, to see the Python code of the slide. You can change the code
-there. Click *Save code*, then render the slide to see the change. The app does not save code that
-has a syntax error.
-
 ## Find and replace
 
 1. Click the search button above the list of slides, or push Ctrl+F.

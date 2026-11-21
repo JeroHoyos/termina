@@ -248,9 +248,10 @@ function describe(name, input) {
   const i = input || {};
   if (name.startsWith('mcp__studio__')) {
     const tool = name.slice(13);
-    const what = [].concat(i.slides || i.slide || i.method || i.format || []).join(', ');
+    const what = [].concat(i.slides || i.slide || i.method || i.format || i.title || []).join(', ');
     const verb = {talks: 'List the talks', slides: 'List the slides', notes: 'Read your review notes', render: 'Render',
-      view: 'Look at', show: 'Show you', place: 'Add to the talk', export: 'Export', present: 'Present'}[tool] || `Studio ${tool}`;
+      view: 'Look at', show: 'Show you', place: 'Add to the talk', export: 'Export', present: 'Present',
+      new: 'Make', chiptune: 'Make 8-bit music'}[tool] || `Studio ${tool}`;
     return {icon: 'brand', verb, target: what, ask: `use the studio tool ${tool}${what ? ` on ${what}` : ''}`};
   }
   const file = rel(i.file_path || i.notebook_path);

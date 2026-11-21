@@ -7,11 +7,15 @@ Run it with the `studio.cmd` launcher in `termina/` (or, from the talks folder, 
     studio talks                            lists the talks, with the folder of each one
     studio open <folder>                    adds a talk from any folder (its own, or its presentacion/)
     studio new-talk "Title" [--about "…"] [--language es|en]
-                    [--in <folder>] [--folder <name>]
+                    [--in <folder>] [--folder <name>] [--video | --reel]
                                             creates a talk with a title slide and a closing slide,
-                                            in <folder>/<name> (next to the others by default)
+                                            in <folder>/<name> (next to the others by default);
+                                            --video: one MP4 at 16:9, scenes without pauses;
+                                            --reel: the same, vertical at 9:16 for the phone
     studio <talk> info [--title "…"] [--about "…"] [--resolution 720p] …
                                             its talk.manimrs: what the talk is (or changes it)
+                                            (--kind video|reel, --music <file> under the MP4)
+    studio <talk> chiptune                  new 8-bit music for a video, under its MP4
     studio <talk> forget                    takes it off the list, its folder stays as it is
     studio <talk> list                      its slides and their status
     studio <talk> render <slide>...         renders only those (name or number)
@@ -95,7 +99,9 @@ REGISTRY_LOCK = HERE.parent / ".talks.lock"
 PROJECT_FILE = "talk.manimrs"
 SPEAKER_FILE = "speaker-notes.json"
 PROJECT_FIELDS = {"title": "", "about": "", "author": "", "language": "es", "resolution": "1080p",
-                  "numbers": "off"}
+                  "numbers": "off", "kind": "slides", "music": ""}
+# What a project makes: a talk of slides to present, one video, or one vertical video (a reel).
+KINDS = ("slides", "video", "reel")
 LANGUAGE = re.compile(r"[a-z]{2,3}(-[A-Za-z]{2,4})?")
 # Folder names of the talks' own format: every talk keeps its code in presentacion/ and its slide
 # modules in presentacion/diapositivas/. The renders folder keeps the name "diapos" because the
@@ -376,7 +382,20 @@ def _clean_field(k: str, v) -> str:
         raise RuntimeError("The page numbers are on or off")
     if k == "language" and not LANGUAGE.fullmatch(v):
         raise RuntimeError("The language is a code like es or en")
+    if k == "kind" and v not in KINDS:
+        raise RuntimeError("The kind is slides, video or reel")
+    if k == "music" and (".." in v or Path(v).is_absolute()):
+        raise RuntimeError("The music is a sound file in the folder of the video")
     return v[:4000]
+
+
+def is_video(talk: Talk) -> bool:
+    return project_info(talk)["kind"] != "slides"
+
+
+def vertical(talk: Talk) -> bool:
+    """A reel is 9:16: the pixels of its resolution on their side."""
+    return project_info(talk)["kind"] == "reel"
 
 
 def save_project(talk: Talk, changes: dict) -> dict:
@@ -693,7 +712,8 @@ def _status(talk: Talk, s: Slide, r: dict | None, shared: str, wanted: str) -> s
         return "number"
     if r["shared_hash"] != shared:
         return "shared"
-    return "up_to_date" if r["quality"] == wanted else "resolution"
+    same = r["quality"] == wanted and r.get("vertical", False) == vertical(talk)
+    return "up_to_date" if same else "resolution"
 
 
 def _review(reviews: dict, s: Slide) -> dict:
@@ -902,7 +922,8 @@ def _render_at(talk: Talk, targets: list[Slide], quality: str, log, on_start) ->
     cmd = ["uv", "run", "python", "-m", "manim_slides", "render", "--quality",
            QUALITIES[quality], "--progress_bar", "none", str(SCENE), "Slides"]
     env = _env(STUDIO_TARGETS=json.dumps(wanted), STUDIO_TALK=str(talk.pres),
-               STUDIO_NUMBERS=project_info(talk)["numbers"])
+               STUDIO_NUMBERS=project_info(talk)["numbers"],
+               STUDIO_VERTICAL="on" if vertical(talk) else "off")
     saved = []
 
     def progress(text):
@@ -943,7 +964,7 @@ def _record(talk: Talk, done: list[Slide], shared: str, quality: str):
             renders[s.name] = {"method": s.method, "file": s.file, "hash": s.hash,
                                "previous": s.previous, "previous_hash": s.previous_hash,
                                "shared_hash": shared, "quality": quality, "date": now,
-                               "page": _page(talk, s)}
+                               "page": _page(talk, s), "vertical": vertical(talk)}
 
     def back_to_review(reviews):
         for s in done:
@@ -963,6 +984,8 @@ def rendered(talk: Talk) -> tuple[list[str], list[str]]:
 
 
 def present(talk: Talk, start: str | None = None, wait=True, log=print):
+    if is_video(talk):
+        raise RuntimeError("A video has no presenter, export it as MP4 to watch it")
     have, missing = rendered(talk)
     if not have:
         raise RuntimeError("No slides are rendered yet")
@@ -1040,13 +1063,16 @@ def _video_filter(talk: Talk, fmt: str) -> list[str]:
     """What ffmpeg does to the frames. An MP4 has the resolution of the talk: a slide with a
     different resolution gets that size too. A GIF is small and has its own colors."""
     if fmt == "gif":
-        return ["-vf", f"fps={GIF_FPS},scale={GIF_WIDTH}:-2:flags=lanczos,split[a][b];"
+        scale = f"-2:{GIF_WIDTH}" if vertical(talk) else f"{GIF_WIDTH}:-2"
+        return ["-vf", f"fps={GIF_FPS},scale={scale}:flags=lanczos,split[a][b];"
                        "[a]palettegen=stats_mode=diff[p];[b][p]paletteuse=dither=bayer:bayer_scale=5",
                 "-loop", "0"]
     w, h = VIDEO_SIZES.get(talk.resolution, VIDEO_SIZES["1080p"])
+    if vertical(talk):
+        w, h = h, w
     return ["-vf", f"scale={w}:{h}:force_original_aspect_ratio=decrease,"
                    f"pad={w}:{h}:(ow-iw)/2:(oh-ih)/2,setsar=1",
-            "-c:v", "libx264", "-pix_fmt", "yuv420p", "-crf", "18", "-movflags", "+faststart", "-an"]
+            "-c:v", "libx264", "-pix_fmt", "yuv420p", "-crf", "18", "-movflags", "+faststart"]
 
 
 def _video_list(talk: Talk, names: list[str], folder: Path) -> Path:
@@ -1061,20 +1087,138 @@ def _video_list(talk: Talk, names: list[str], folder: Path) -> Path:
 
 
 def _export_video(talk: Talk, names: list[str], fmt: str, file: Path, log) -> Path:
-    """One video with the slides in order (MP4), or a GIF of them."""
+    """One video with the slides in order (MP4), or a GIF of them. The MP4 of a video has its
+    music, if it has one."""
     ff = shutil.which("ffmpeg")
     if not ff:
         raise RuntimeError("The video needs ffmpeg, install it and try again")
+    music = project_info(talk)["music"] if fmt == "mp4" else ""
+    if music and not (talk.pres / music).is_file():
+        raise RuntimeError(f"There is no music file “{Path(music).name}” in the folder")
+    # The music plays again and again until the video ends.
+    sound = (["-stream_loop", "-1", "-i", str(talk.pres / music)] if music else [])
+    mix = ["-map", "0:v", "-map", "1:a", "-shortest", "-c:a", "aac"] if music else ["-an"]
     import tempfile
     log(f"Joining the videos of {len(names)} slide{'s' if len(names) != 1 else ''}…")
     with tempfile.TemporaryDirectory() as tmp:
         cmd = [ff, "-v", "error", "-y", "-f", "concat", "-safe", "0",
-               "-i", str(_video_list(talk, names, Path(tmp))), *_video_filter(talk, fmt), str(file)]
+               "-i", str(_video_list(talk, names, Path(tmp))), *sound,
+               *_video_filter(talk, fmt), *(mix if fmt == "mp4" else []), str(file)]
         code, lines = run(cmd, talk.pres, log)
     if code != 0:
         _fail(lines, 20, "the export failed", log)
     log(f"Done: {file} ({file.stat().st_size / 1e6:.1f} MB)")
     return file
+
+
+# 8-bit music for a video: a loop of 8 bars, like the sound chip of an old console. Two square
+# waves (melody and arpeggio), a triangle bass and noise drums. The MP4 export plays the loop
+# again until the video ends. A new tune replaces the one before.
+CHIPTUNE_FILE = "music-8bit.wav"
+_RATE = 22050
+_NOTE_NAMES = ("C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B")
+
+
+def _play(out: list, start: float, length: float, freq: float, wave: str, volume: float,
+          duty: float = 0.5):
+    """Adds one note to `out`, from `start` for `length` seconds."""
+    import math
+    first, n = int(start * _RATE), int(length * _RATE)
+    noise, held = (0x9E3779B9 ^ first) & 0xFFFFFFFF, 0.0
+    for i in range(min(n, len(out) - first)):
+        t = i / _RATE
+        phase = (t * freq) % 1.0
+        if wave == "square":
+            v = 1.0 if phase < duty else -1.0
+        elif wave == "triangle":
+            v = 4.0 * abs(phase - 0.5) - 1.0
+        elif wave == "noise":
+            if i % 3 == 0:
+                noise ^= (noise << 13) & 0xFFFFFFFF
+                noise ^= noise >> 17
+                noise ^= (noise << 5) & 0xFFFFFFFF
+                held = noise / 0xFFFFFFFF * 2.0 - 1.0
+            v = held
+        else:  # a kick: a pitch that falls from 150 Hz to 40 Hz
+            v = math.sin(math.tau * (40.0 * t + 110.0 * (1.0 - math.exp(-30.0 * t)) / 30.0))
+        decay = math.exp(-t * 22.0) if wave in ("noise", "kick") else 1.0 - 0.45 * i / n
+        # A short fade at each end of the note, so it does not click.
+        edges = min(i / (0.002 * _RATE), (n - i) / (0.005 * _RATE), 1.0)
+        out[first + i] += v * volume * decay * edges
+
+
+def chiptune_samples(seed: int) -> tuple[list, str]:
+    """The samples of one loop (between -1 and 1), and what the tune is."""
+    import random
+    rng = random.Random(seed)
+    minor = rng.random() < 0.5
+    scale = (0, 2, 3, 5, 7, 8, 10) if minor else (0, 2, 4, 5, 7, 9, 11)
+    # Chords as degrees of the scale, four bars that come back.
+    chords = rng.choice(((0, 5, 2, 6), (0, 3, 6, 2), (0, 6, 5, 6)) if minor
+                        else ((0, 4, 5, 3), (0, 5, 3, 4), (5, 3, 0, 4)))
+    key, bpm = 57 + rng.randrange(8), 112 + 4 * rng.randrange(9)
+
+    def note(degree):
+        return key + scale[degree % 7] + 12 * (degree // 7)
+
+    def hz(midi):
+        return 440.0 * 2 ** ((midi - 69) / 12)
+
+    # The melody in eighths over the chord: a two-bar motif, played four times, the last time
+    # with a new end that comes home to the chord.
+    motif, at = [], 0
+    for i in range(16):
+        rest = i % 4 != 0 and rng.randrange(5) == 0
+        at = max(-1, min(7, at + rng.choice((-2, -1, 0, 1, 2, 2, -2, 4))))
+        motif.append(None if rest else (at - at % 2 if i % 2 == 0 else at))
+    ending = motif[:8] + [4, 2, 1, 0, 0, None, None, None]
+
+    sixteenth = 60.0 / bpm / 4.0
+    out = [0.0] * int(8 * 16 * sixteenth * _RATE)
+    for bar in range(8):
+        chord, start = chords[bar % 4], bar * 16 * sixteenth
+        phrase = ending if bar >= 6 else motif
+        for eighth in range(8):
+            t = start + eighth * 2 * sixteenth
+            d = phrase[(bar % 2) * 8 + eighth]
+            if d is not None:
+                _play(out, t, 1.8 * sixteenth, hz(note(chord + d) + 12), "square", 0.22)
+            bass = hz(note(chord) - 12 + (-12 if eighth % 2 == 0 else 0))
+            _play(out, t, 1.9 * sixteenth, bass, "triangle", 0.38)
+        for s in range(16):
+            t = start + s * sixteenth
+            arp = hz(note(chord + (0, 2, 4, 7)[s % 4]) + 12)
+            _play(out, t, 0.9 * sixteenth, arp, "square", 0.07, duty=0.125)
+            if s in (0, 8):
+                _play(out, t, 4 * sixteenth, 0, "kick", 0.55)
+            elif s in (4, 12):
+                _play(out, t, 2 * sixteenth, 0, "noise", 0.30)
+            elif bar == 7 and s >= 12:
+                _play(out, t, sixteenth, 0, "noise", 0.22)
+            elif s % 2 == 0:
+                _play(out, t, 0.4 * sixteenth, 0, "noise", 0.08)
+    peak = max(max(map(abs, out)), 1e-6)
+    out = [v * 0.85 / peak for v in out]
+    return out, f"{_NOTE_NAMES[key % 12]} {'minor' if minor else 'major'}, {bpm} beats per minute"
+
+
+def chiptune(talk: Talk) -> str:
+    """Makes a new 8-bit tune for the video and makes it its music."""
+    if not is_video(talk):
+        raise RuntimeError("8-bit music is for a video or a reel, a talk has no music")
+    import array
+    import wave
+    samples, what = chiptune_samples(time.time_ns())
+    pcm = array.array("h", (int(max(-1.0, min(1.0, v)) * 32767) for v in samples))
+    if sys.byteorder == "big":
+        pcm.byteswap()
+    with wave.open(str(talk.pres / CHIPTUNE_FILE), "wb") as w:
+        w.setnchannels(1)
+        w.setsampwidth(2)
+        w.setframerate(_RATE)
+        w.writeframes(pcm.tobytes())
+    save_project(talk, {"music": CHIPTUNE_FILE})
+    return f"New 8-bit music: {what}. It plays again and again under the MP4"
 
 
 def speak(text: str, language: str, wav: Path):
@@ -2657,15 +2801,116 @@ def build(scene):
 '''
 
 
-def talk_folder(title: str) -> str:
-    """“Charla: Docker from scratch” → charla-docker-from-scratch."""
+# A video has the same files as a talk. Its slides are scenes: each one ends with a cut, not with a
+# pause, and the MP4 export joins them into one video. A reel is a video at 9:16.
+_NEW_VIDEO_MAIN = _NEW_MAIN.replace("class presentation", "class video").replace(
+    "self.slide_closing()", "self.slide_end()")
+
+_NEW_VIDEO_INIT = '''\
+from manim import FadeOut
+
+from . import end, title
+
+
+class SlideBase:
+    def start_slide(self):
+        """Before each scene, whatever the previous one left fades out."""
+        if self.mobjects:
+            self.play(*[FadeOut(m) for m in self.mobjects], run_time=0.4)
+
+
+def _slide(build):
+    def method(self):
+        self.start_slide()
+        build(self)
+        # The cut at the end of the scene. The video does not stop there.
+        self.next_slide()
+
+    return method
+
+
+class TalkSlides:
+    slide_title = _slide(title.build)
+    slide_end = _slide(end.build)
+'''
+
+_NEW_VIDEO_TITLE = '''\
+from manim import BOLD, DOWN, LEFT, RIGHT, UP, FadeIn, GrowFromCenter, Line, Text, VGroup, Write, config
+
+from style import ACCENT, FONT, SECONDARY, TEXT
+
+TITLE = {title}
+SUBTITLE = ""
+
+
+def build(scene):
+    title = Text(TITLE, font=FONT, font_size=60, color=TEXT, weight=BOLD)
+    rule = Line(LEFT * 1.2, RIGHT * 1.2, color=ACCENT, stroke_width=6)
+    pieces = [title, rule]
+    if SUBTITLE:
+        pieces.append(Text(SUBTITLE, font=FONT, font_size=30, color=SECONDARY))
+    for p in pieces:
+        if p.width > config.frame_width - 1.5:
+            p.scale_to_fit_width(config.frame_width - 1.5)
+    VGroup(*pieces).arrange(DOWN, buff=0.45)
+
+    scene.play(Write(title), run_time=1.2)
+    scene.play(GrowFromCenter(rule), *[FadeIn(p, shift=UP * 0.15) for p in pieces[2:]],
+               run_time=0.8)
+    scene.wait(1.5)
+'''
+
+_NEW_VIDEO_END = '''\
+from manim import BOLD, FadeIn, FadeOut, Text, config
+
+from style import FONT, TEXT
+
+TITLE = {title}
+
+
+def build(scene):
+    title = Text(TITLE, font=FONT, font_size=64, color=TEXT, weight=BOLD)
+    if title.width > config.frame_width - 1.5:
+        title.scale_to_fit_width(config.frame_width - 1.5)
+
+    scene.play(FadeIn(title, scale=0.9), run_time=0.9)
+    scene.wait(1.5)
+    scene.play(FadeOut(title), run_time=0.8)
+'''
+
+# Used by `new` in a video: “Slide title” becomes the name of the scene.
+_NEW_VIDEO_TEMPLATE = '''\
+from manim import BOLD, DOWN, UP, Circle, Create, FadeIn, Square, Text, Transform, config
+
+from style import ACCENT, FONT, TEXT, TITLE_SIZE
+
+TITLE = "Slide title"
+
+
+def build(scene):
+    title = Text(TITLE, font=FONT, font_size=TITLE_SIZE, color=TEXT, weight=BOLD)
+    if title.width > config.frame_width - 1.5:
+        title.scale_to_fit_width(config.frame_width - 1.5)
+    title.to_edge(UP, buff=0.8)
+    shape = Square(side_length=2.5, color=ACCENT)
+
+    scene.play(FadeIn(title, shift=DOWN * 0.2), run_time=0.7)
+    scene.play(Create(shape), run_time=1)
+    scene.play(Transform(shape, Circle(radius=1.4, color=ACCENT)), run_time=1)
+    scene.wait(1)
+'''
+
+
+def talk_folder(title: str, kind: str = "slides") -> str:
+    """“Charla: Docker from scratch” → charla-docker-from-scratch, video-docker-from-scratch or
+    reel-docker-from-scratch, after the kind."""
     plain = unicodedata.normalize("NFKD", title).encode("ascii", "ignore").decode()
     short = re.sub(r"[^a-z0-9]+", "-", plain.lower()).strip("-").removeprefix(TALK_PREFIX)
     if len(short) > 40:
         short = short[:40].rsplit("-", 1)[0]
     if not short:
         raise RuntimeError("The title needs at least one letter or number")
-    return f"{TALK_PREFIX}{short}"
+    return f"{TALK_PREFIX}{short}" if kind == "slides" else f"{kind}-{short}"
 
 
 # The presenter keys of the other talks: → and ↓ next, ← and ↑ back, F full screen, Q quit.
@@ -2724,45 +2969,61 @@ def _folder_name(text: str) -> str:
 
 
 def new_talk(title: str, about: str = "", language: str = "es",
-             where: Path | None = None, folder: str | None = None) -> Talk:
+             where: Path | None = None, folder: str | None = None, kind: str = "slides") -> Talk:
     """Creates <where>/<folder> (the talks folder and charla-<title> by default) with a title slide
     and a closing slide, ready to render and grow. Everything goes in that one folder, and the
-    Studio adds it to its list. The folder may already exist if it is empty."""
+    Studio adds it to its list. The folder may already exist if it is empty. A video or a reel
+    starts with a title scene and an end scene, in video-<title> or reel-<title>."""
+    if kind not in KINDS:
+        raise RuntimeError("The kind is slides, video or reel")
     title, about = " ".join(title.split()), about.strip()
     if not LANGUAGE.fullmatch(language):
         raise RuntimeError("The language is a code like es or en")
     where = ROOT if where is None else Path(where)
     if not where.is_absolute() or not where.is_dir():
         raise RuntimeError("That place does not exist, choose another folder")
-    name = _folder_name(folder) if folder else talk_folder(title)
+    name = _folder_name(folder) if folder else talk_folder(title, kind)
     if not re.search(r"[A-Za-z0-9]", unicodedata.normalize("NFKD", title)):
         raise RuntimeError("The title needs at least one letter or number")
     root = where / name
     existed = root.exists()
     if existed and not (root.is_dir() and not any(root.iterdir())):
         raise RuntimeError(f"There is already a folder called {name} there, choose another name")
-    _write_new_talk(root, _new_talk_files(name, title, about, language), existed)
+    _write_new_talk(root, _new_talk_files(name, title, about, language, kind), existed)
     return register(root)
 
 
-def _new_talk_files(name: str, title: str, about: str, language: str) -> dict:
+def _new_talk_files(name: str, title: str, about: str, language: str, kind: str = "slides") -> dict:
     """The files of a new talk: {path inside its folder: text}."""
     readme = [f"# {title}", ""] + ([about, ""] if about else [])
     thanks, questions = _CLOSING_WORDS.get(language.split("-")[0], _CLOSING_WORDS["en"])
-    project = {**PROJECT_FIELDS, "title": title, "about": about, "language": language}
-    return {
+    project = {**PROJECT_FIELDS, "title": title, "about": about, "language": language, "kind": kind}
+    made, what = (("Animated video with Manim", "video") if kind != "slides"
+                  else ("Animated presentation with Manim Slides", "talk"))
+    common = {
         PROJECT_FILE: json.dumps({"manimrs": 1, **project}, ensure_ascii=False, indent=2) + "\n",
         "README.md": "\n".join(readme + [
-            "Animated presentation with Manim Slides, made with Termina. What the talk is",
+            f"{made}, made with Termina. What the {what} is",
             f"(title, what it is about, language and resolution) is in `{PROJECT_FILE}`.", ""]),
         ".gitignore": _NEW_GITIGNORE,
-        ".manim-slides.toml": _NEW_PRESENTER_KEYS,
         "pyproject.toml": _NEW_PYPROJECT.format(
-            id=_slug(name), description=json.dumps(f"{title}: presentation with Manim Slides",
-                                                   ensure_ascii=False)),
+            id=_slug(name), description=json.dumps(f"{title}: {made}", ensure_ascii=False)),
         ".python-version": "3.13\n",
-        "main.py": _NEW_MAIN,
         "style.py": _NEW_STYLE,
+    }
+    if kind != "slides":
+        return {
+            **common,
+            "main.py": _NEW_VIDEO_MAIN,
+            f"{SLIDES_PACKAGE}/__init__.py": _NEW_VIDEO_INIT,
+            f"{SLIDES_PACKAGE}/_template.py": _NEW_VIDEO_TEMPLATE,
+            f"{SLIDES_PACKAGE}/title.py": _NEW_VIDEO_TITLE.format(title=repr(title)),
+            f"{SLIDES_PACKAGE}/end.py": _NEW_VIDEO_END.format(title=repr(thanks)),
+        }
+    return {
+        **common,
+        ".manim-slides.toml": _NEW_PRESENTER_KEYS,
+        "main.py": _NEW_MAIN,
         f"{SLIDES_PACKAGE}/__init__.py": _NEW_INIT,
         f"{SLIDES_PACKAGE}/_template.py": _NEW_TEMPLATE,
         f"{SLIDES_PACKAGE}/title.py": _NEW_TITLE.format(title=repr(title)),
@@ -3174,14 +3435,18 @@ def _cmd_new_talk(args: list[str]):
     p.add_argument("--language", default="es")
     p.add_argument("--in", dest="where", help="the folder that will hold it (the talks folder by default)")
     p.add_argument("--folder", help="the name of its folder (charla-<title> by default)")
+    p.add_argument("--video", action="store_true", help="one MP4 at 16:9: scenes without pauses")
+    p.add_argument("--reel", action="store_true", help="a video at 9:16, for the phone")
     p.add_argument("--json", action="store_true")
     a = p.parse_args(args)
+    kind = "reel" if a.reel else "video" if a.video else "slides"
     try:
         talk = new_talk(" ".join(a.title), a.about, a.language,
-                        Path(a.where) if a.where else None, a.folder)
+                        Path(a.where) if a.where else None, a.folder, kind)
     except (RuntimeError, OSError) as e:
         raise SystemExit(f"Error: {e}") from None
-    return _print_talk(talk, a.json, f"Created {talk.id} with a title slide and a closing slide")
+    parts = "a title scene and an end scene" if kind != "slides" else "a title slide and a closing slide"
+    return _print_talk(talk, a.json, f"Created {talk.id} with {parts}")
 
 
 def _cmd_import(args: list[str]):
@@ -3416,6 +3681,7 @@ COMMANDS = {
     "find": _cmd_find,
     "delete": lambda talk, a, plan: delete(talk, _one(talk, a, plan)),
     "resolution": _cmd_resolution,
+    "chiptune": lambda talk, a, plan: chiptune(talk),
 }
 
 

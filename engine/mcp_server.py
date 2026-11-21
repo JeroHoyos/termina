@@ -6,7 +6,7 @@ output, one JSON-RPC message per line:
     uv run --no-project termina/engine/mcp_server.py
 
 It gives the same tools the app gives its own Claude chat (talks, slides, notes, render, view,
-place, export, present), and each one runs a studio.py command, so the app, the web panel and the
+place, export, new, chiptune, present), and each one runs a studio.py command, so the app, the web panel and the
 commands see what the agent does. Only the Python standard library.
 """
 
@@ -65,9 +65,18 @@ TOOLS = [
           "the end). The method must already be registered in diapositivas/__init__.py.",
           {"talk": _TALK, "method": {"type": "string", "description": "Like slide_git_stash."},
            "after": _SLIDE}, ["talk", "method"]),
-    _tool("export", "Builds the HTML package (.zip) or a PDF with what is already rendered. Only "
-          "if the user asks.", {"talk": _TALK, "format": {"type": "string", "enum": ["html", "pdf"]}},
-          ["talk"]),
+    _tool("export", "Builds the HTML package (.zip), a PDF, or one MP4 (with the music of a video) "
+          "with what is already rendered. Only if the user asks.",
+          {"talk": _TALK, "format": {"type": "string", "enum": ["html", "pdf", "mp4"]}}, ["talk"]),
+    _tool("new", "Makes a new talk (a title slide and a closing slide), a new video or a new reel "
+          "(a title scene and an end scene) in the talks folder. Only if the user asks for one. "
+          "A video has no pauses: each scene ends with self.next_slide(), a cut. A reel is a video "
+          "at 9:16: its frame is 8 units wide and 14.2 high.",
+          {"title": {"type": "string"}, "about": {"type": "string", "description": "What it is about."},
+           "language": {"type": "string", "description": "A code like es or en."},
+           "kind": {"type": "string", "enum": ["slides", "video", "reel"]}}, ["title"]),
+    _tool("chiptune", "Makes new 8-bit music for a video or a reel: a loop that plays under its whole "
+          "MP4. Each call makes a different tune.", {"talk": _TALK}, ["talk"]),
     _tool("present", "Opens the full-screen presenter. Only if the user asks.",
           {"talk": _TALK, "start": _SLIDE}, ["talk"]),
 ]
@@ -140,9 +149,22 @@ ACTIONS = {
     "render": _render,
     "view": _view,
     "place": _place,
-    "export": lambda talk, a: [_text(studio(talk, "export", *(["--pdf"] if a.get("format") == "pdf" else [])))],
+    "export": lambda talk, a: [_text(studio(talk, "export", *(
+        [f"--{a['format']}"] if a.get("format") in ("pdf", "mp4") else [])))],
+    "chiptune": lambda talk, a: [_text(studio(talk, "chiptune"))],
     "present": _present,
 }
+
+
+def _new(a: dict) -> list[dict]:
+    kind = a.get("kind") or "slides"
+    if kind not in ("slides", "video", "reel"):
+        raise RuntimeError("The kind is slides, video or reel.")
+    option = [] if kind == "slides" else [f"--{kind}"]
+    # After “--” everything is title, even if it starts with a dash.
+    return [_text(studio("new-talk", f"--about={a.get('about') or ''}",
+                         f"--language={a.get('language') or 'es'}", *option, "--",
+                         str(a.get("title", ""))))]
 
 
 def call(name: str, a: dict) -> dict:
@@ -150,6 +172,8 @@ def call(name: str, a: dict) -> dict:
     try:
         if name == "talks":
             return {"content": [_text(studio("talks"))], "isError": False}
+        if name == "new":
+            return {"content": _new(a), "isError": False}
         if name not in ACTIONS:
             raise RuntimeError(f"Unknown tool “{name}”.")
         talk = str(a.get("talk", "")).strip()

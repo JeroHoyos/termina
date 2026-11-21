@@ -60,14 +60,7 @@ function paintViewer(fresh) {
         <textarea id="speaker" aria-labelledby="t-speaker" placeholder="What you want to say on this slide"></textarea>
         <div class="review-head pause-head"><h2 id="t-pause-notes">Only on this pause</h2><span class="hint" id="v-pause-n"></span></div>
         <textarea id="pause-notes" aria-labelledby="t-pause-notes" placeholder="What you want to say when this pause shows"></textarea>
-      </section>
-      <details class="review" id="code">
-        <summary><h2>Code</h2></summary>
-        <textarea id="source" class="code" spellcheck="false" wrap="off" aria-label="Code of the slide"></textarea>
-        <div class="review-actions"><span class="hint">Render the slide to see a change</span><span class="spacer"></span>
-          <button class="btn" id="b-save-code" disabled>${icon('check')}Save code</button></div>
-      </details></div>`;
-    wireCode(s);
+      </section></div>`;
     $('#speaker').value = s.speaker;
     $('#pause-notes').onchange = e => attempt(invoke('edit', {talk, args: ['speaker', '--pause', e.target.dataset.p, '--', s.name, e.target.value]}).then(() => { refresh(); }));
     $('#speaker').onchange = e => attempt(invoke('edit', {talk, args: ['speaker', '--', s.name, e.target.value]}).then(() => { refresh(); }));
@@ -113,21 +106,6 @@ function paintPauseNotes() {
   box.dataset.p = String(part + 1);
   box.value = s.pause_notes?.[part + 1] || '';
   $('#v-pause-n').textContent = s.parts.length ? `Pause ${part + 1}` : '';
-}
-
-// The code of the slide loads when its section opens; the section stays as you left it.
-function wireCode(s) {
-  const code = $('#code');
-  const fill = async () => {
-    if (!code.open || code.dataset.loaded) return;
-    code.dataset.loaded = '1';
-    try { $('#source').value = (await invoke('source', {talk, line: s.line})).text; }
-    catch (e) { toast(String(e)); }
-  };
-  code.open = load('studio.code', '') === '1';
-  code.ontoggle = () => { save('studio.code', code.open ? '1' : ''); fill(); };
-  $('#source').oninput = () => { $('#b-save-code').disabled = false; };
-  fill();
 }
 
 // Find and replace in the text of the slides and in the speaker notes.
@@ -245,6 +223,9 @@ function paintNewTalk() {
   $('#viewer').innerHTML = `<form class="form" id="f-talk" autocomplete="off">
     <div><h1>New talk</h1>
       <p class="hint">It starts with a title slide and a closing slide, then you add slides here or with Claude</p></div>
+    <div class="field"><label for="t-kind">What you make</label>
+      <select id="t-kind"><option value="slides">Talk to present</option><option value="video">Video 16:9</option><option value="reel">Reel 9:16</option></select>
+      <span class="hint">A video has no pauses: its scenes play one after the other in one MP4. A reel is a vertical video, for the phone</span></div>
     <div class="field"><label for="t-title">Title</label>
       <input type="text" id="t-title" required placeholder="For example: Docker from scratch"></div>
     <div class="field"><label for="t-topic">What it is about <span class="optional">optional</span></label>
@@ -273,7 +254,8 @@ function paintNewTalk() {
   folder.value = draft.folder || '';
   paintPlace();
   title.focus();
-  title.oninput = () => { if (!named) { folder.value = folderName(title.value); paintPlace(); } };
+  const kind = $('#t-kind');
+  title.oninput = kind.onchange = () => { if (!named) { folder.value = folderName(title.value, kind.value); paintPlace(); } };
   folder.oninput = () => { named = !!folder.value.trim(); paintPlace(); };
   $('#t-choose').onclick = async () => {
     const picked = await pickFolder('Choose where the new talk goes', place);
@@ -289,13 +271,15 @@ function paintNewTalk() {
     try {
       const r = await invoke('new_talk', {
         title: t, about: topic, language: $('#t-language').value,
-        place, folder: folder.value.trim(),
+        place, folder: folder.value.trim(), kind: kind.value,
       });
       save('studio.place', place);
       newTalkDraft = null;
       await enterTalk(r);
-      if (topic) sendToClaude(`/slides ${r.id}: it is a new talk, “${t}”, already created with a title slide and a closing slide. What it is about is in its talk.manimrs: ${topic}. Propose the list of slides first and wait for my approval before creating them`);
-      else toast('Talk created, render its pending slides to see it');
+      const video = kind.value !== 'slides', what = {slides: 'talk', video: 'video', reel: 'reel'}[kind.value];
+      const start = video ? 'a title scene and an end scene' : 'a title slide and a closing slide';
+      if (topic) sendToClaude(`/slides ${r.id}: it is a new ${what}, “${t}”, already created with ${start}. What it is about is in its talk.manimrs: ${topic}. Propose the list of ${video ? 'scenes' : 'slides'} first and wait for my approval before creating them`);
+      else toast(video ? 'Video made, render its pending scenes to see it' : 'Talk created, render its pending slides to see it');
     } catch (err) {
       $('#t-create').disabled = false;
       toast(String(err));
@@ -326,6 +310,13 @@ function paintDetails() {
       <select id="d-theme">${data.theme ? '' : '<option value="">Its own colors</option>'}${THEMES.map(([v, n]) => `<option value="${v}">${n}</option>`).join('')}</select>
       <span class="hint">A change of colors needs a new render of the slides</span></div>`}
     <div class="checks"><label><input type="checkbox" id="d-numbers">Number the slides</label></div>
+    ${(p.kind || 'slides') === 'slides' ? '' : `<div class="field"><label for="d-kind">Shape</label>
+      <select id="d-kind"><option value="video">Video 16:9</option><option value="reel">Reel 9:16</option></select>
+      <span class="hint">A change of shape needs a new render of the scenes</span></div>
+    <div class="field"><label for="d-music">Music <span class="optional">optional</span></label>
+      <div class="place"><input type="text" id="d-music" spellcheck="false" placeholder="For example: music.mp3">
+        <button type="button" class="btn" id="d-chiptune">Make 8-bit music</button></div>
+      <span class="hint">A sound file in the folder of the video, it plays again and again under the whole MP4</span></div>`}
     <div class="field"><span class="field-name" id="d-where">Folder</span>
       <div class="place" role="group" aria-labelledby="d-where"><span class="place-path" id="d-place"></span>
         <button type="button" class="btn" id="d-show">Show in folder</button></div></div>
@@ -335,8 +326,16 @@ function paintDetails() {
       <button type="button" class="btn subtle" id="d-cancel">Cancel</button>
       <button type="submit" class="btn primary" id="d-save">${icon('check')}Save</button>
     </div></form>`;
-  const fields = ['title', 'about', 'author', 'language'];
+  const fields = ['title', 'about', 'author', 'language', ...($('#d-kind') ? ['kind', 'music'] : [])];
   for (const f of fields) $(`#d-${f}`).value = p[f] || '';
+  if ($('#d-chiptune')) $('#d-chiptune').onclick = async e => {
+    e.target.disabled = true;
+    try {
+      toast(await invoke('edit', {talk, args: ['chiptune']}));
+      p.music = $('#d-music').value = 'music-8bit.wav';
+    } catch (err) { toast(String(err)); }
+    e.target.disabled = false;
+  };
   $('#d-language').value = p.language || 'es';
   $('#d-numbers').checked = p.numbers === 'on';
   if ($('#d-theme')) $('#d-theme').value = data.theme;

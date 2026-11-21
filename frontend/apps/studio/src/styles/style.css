@@ -311,6 +311,10 @@ aside {
   position: relative; aspect-ratio: 16 / 9; border-radius: var(--radius); overflow: hidden;
   background: radial-gradient(circle, rgb(246 246 243 / .13) 1px, transparent 1.4px) 0 0 / 18px 18px, var(--screen);
 }
+/* a video has no presenter; a reel is 9:16 */
+.video #present, .video #b-present { display: none; }
+.reel .screen { aspect-ratio: 9 / 16; width: min(100%, calc(70vh * 9 / 16)); margin: 0 auto; }
+.reel .thumb { width: 30px; aspect-ratio: 9 / 16; }
 /* one video per pause, stacked: only the one playing shows */
 .stack { position: absolute; inset: 0; }
 .stack video { position: absolute; inset: 0; width: 100%; height: 100%; display: block; object-fit: contain; visibility: hidden; }
@@ -769,10 +773,6 @@ aside { overflow: hidden; }
 }
 
 /* The code of a slide, and find and replace. */
-#code summary { cursor: pointer; }
-#code summary h2 { display: inline; }
-#code[open] summary { margin-bottom: var(--s2); }
-textarea.code { font: 12.5px/1.55 var(--mono); min-height: 320px; white-space: pre; tab-size: 4; }
 .checks { display: flex; gap: var(--s4); font-size: var(--t-ui); }
 .checks label { display: flex; align-items: center; gap: var(--s1); }
 .found {

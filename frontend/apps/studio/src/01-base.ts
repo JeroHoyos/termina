@@ -28,7 +28,9 @@ const EXPLAIN = {
   changed: () => 'Changed since the last render',
   transition: s => `The previous slide (${s.previous || 'none'}) changed, so its entrance is outdated`,
   shared: () => 'Shared code (style, components…) changed since its render, it may look different',
-  resolution: s => `It is at ${s.quality} and you want it at ${s.resolution || quality}`,
+  resolution: s => s.quality === (s.resolution || quality)
+    ? 'The shape of the video changed since its render'
+    : `It is at ${s.quality} and you want it at ${s.resolution || quality}`,
   number: () => 'Its page number changed since the render',
   up_to_date: () => 'The video is up to date',
 };
@@ -88,9 +90,9 @@ const inside = (dir, p) => {
   return !!dir && (norm(p) + '/').startsWith(norm(dir) + '/');
 };
 // Same as talk_folder in studio.py: “Docker from scratch” → charla-docker-from-scratch
-const folderName = t => {
+const folderName = (t, kind = 'slides') => {
   let s = t.normalize('NFKD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '').replace(/^charla-/, '');
   if (s.length > 40) s = s.slice(0, 40).replace(/-[^-]*$/, '');
-  return s ? 'charla-' + s : '';
+  return s ? (kind === 'slides' ? 'charla-' : kind + '-') + s : '';
 };

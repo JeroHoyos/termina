@@ -1,7 +1,5 @@
 # Tutorial: your first talk
 
-**English** | [Español](es/tutorial.md)
-
 In this tutorial you make a talk with three slides. You render it, change it with Claude, present
 it and export it. The tutorial takes approximately 15 minutes.
 

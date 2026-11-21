@@ -53,7 +53,7 @@ uv run --no-project termina/engine/studio.py <talk> note <slide> --clear
 uv run --no-project termina/engine/studio.py talks                     # name, title and folder of each talk
 uv run --no-project termina/engine/studio.py <talk> info              # its talk.manimrs
 uv run --no-project termina/engine/studio.py open "C:/path/to/talk"   # adds a talk from any folder
-uv run --no-project termina/engine/studio.py new-talk "Title" --about "…" [--in "C:/folder"] [--folder name]
+uv run --no-project termina/engine/studio.py new-talk "Title" --about "…" [--in "C:/folder"] [--folder name] [--video | --reel]
 ```
 
 `<talk>` goes in full or without “charla-”: `claude`, `git`, `redes-neuronales`, `agentica`, or any
@@ -66,6 +66,18 @@ folder and has no AGENTS.md: what it is about is in its `talk.manimrs`, its styl
 the request brings a topic, propose the list of slides and wait for the user's approval before
 creating them.
 
+A video (`new-talk "Title" --video`, or *Video 16:9* in the app) has `"kind": "video"` in its
+`talk.manimrs` and the same files. Its slides are scenes: the `_slide` wrapper ends each scene with
+a cut, so a scene's `build(scene)` never calls `scene.next_slide()`, and the presenter does not
+open. A scene plays straight into the next one: give it enough `scene.wait()` to be read. The
+result is `export --mp4` (with the `music` of its `talk.manimrs`) or `export --narrated` (a voice
+says the speaker notes of each scene). Export only when the user asks.
+
+A reel (`new-talk "Title" --reel`, `"kind": "reel"`) is a video at 9:16. Its frame is 8 units wide
+and 14.2 high: put the layout in a column, keep text and objects inside `config.frame_width`, and
+use `stills` to check that nothing goes out at the sides. `chiptune` writes new 8-bit music for a
+video or a reel (`music-8bit.wav`) and makes it its music; each call makes a different tune.
+
 ## Flow
 
 1. Read the AGENTS.md, CLAUDE.md or README of that talk before touching anything. Its rules are
@@ -75,7 +87,8 @@ creating them.
 3. Make the smallest change that fulfils the request. For a new slide, create it with `new` (it
    leaves the file from the talk's template, registers it and places it) and then write its content
    following the talk's “add a slide” section. If the request says the slide “is already created
-   and placed”, don't create it again: only make its content.
+   and placed”, don't create it again: only make its content. For formulas, graphs, geometry or
+   3D models, follow the `manim-math` skill too.
 4. Render **only** the ones you touched: `render <slide>...`. The default quality is the talk's resolution (its `talk.manimrs`); use
    `--quality 480p` if the user asks for speed. If you changed shared code (style, components), say
    which other slides change instead of rendering all of them without asking.

@@ -119,7 +119,6 @@ fn main() {
             commands::slides::render,
             commands::slides::edit,
             commands::slides::export,
-            commands::slides::source,
             commands::slides::find,
             commands::slides::objects,
             commands::slides::insert_picture,
