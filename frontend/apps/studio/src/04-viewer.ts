@@ -54,16 +54,7 @@ function paintViewer(fresh) {
           <button class="btn subtle" id="b-save-note" title="Save the note to send it later together with others">${icon('pencil')}Save note</button>
           <button class="btn primary" id="b-send" title="Send the request to Claude">${icon('send')}Send to Claude</button>
         </div>
-      </section>
-      <section class="review" aria-labelledby="t-speaker">
-        <div class="review-head"><h2 id="t-speaker">Speaker notes</h2><span class="hint">Only you see them when you present</span></div>
-        <textarea id="speaker" aria-labelledby="t-speaker" placeholder="What you want to say on this slide"></textarea>
-        <div class="review-head pause-head"><h2 id="t-pause-notes">Only on this pause</h2><span class="hint" id="v-pause-n"></span></div>
-        <textarea id="pause-notes" aria-labelledby="t-pause-notes" placeholder="What you want to say when this pause shows"></textarea>
       </section></div>`;
-    $('#speaker').value = s.speaker;
-    $('#pause-notes').onchange = e => attempt(invoke('edit', {talk, args: ['speaker', '--pause', e.target.dataset.p, '--', s.name, e.target.value]}).then(() => { refresh(); }));
-    $('#speaker').onchange = e => attempt(invoke('edit', {talk, args: ['speaker', '--', s.name, e.target.value]}).then(() => { refresh(); }));
     $('#note').value = noteDrafts.get(noteKey(s)) ?? (s.review.note || '');
     $('#note').oninput = e => { const now = current(); if (now) noteDrafts.set(noteKey(now), e.target.value); };
     wireNoteImages();
@@ -97,15 +88,6 @@ function paintViewer(fresh) {
   $('#b-present').disabled = !s.parts.length;
   $('#b-canvas').disabled = !s.parts.length;
   loadVideo();
-}
-
-// The notes of the pause that the player shows. A pause that you are writing stays.
-function paintPauseNotes() {
-  const s = current(), box = $('#pause-notes');
-  if (!s || !box || document.activeElement === box) return;
-  box.dataset.p = String(part + 1);
-  box.value = s.pause_notes?.[part + 1] || '';
-  $('#v-pause-n').textContent = s.parts.length ? `Pause ${part + 1}` : '';
 }
 
 // Find and replace in the text of the slides and in the speaker notes.

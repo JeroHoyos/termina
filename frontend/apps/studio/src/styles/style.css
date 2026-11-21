@@ -789,7 +789,6 @@ aside { overflow: hidden; }
 #canvas-layer .obj { position: absolute; border: 1px solid transparent; border-radius: 2px; cursor: move; }
 #canvas-layer .obj:hover, #canvas-layer .obj.dragging { border-color: var(--accent); background: rgb(43 89 255 / .14); }
 #canvas-bar { display: flex; align-items: center; gap: var(--s2); margin-top: var(--s3); }
-.pause-head { margin-top: var(--s3); }
 .s-number { box-shadow: inset 0 0 0 2px var(--info); }
 
 /* The dark window: the same brand, with Grafito as the background. */

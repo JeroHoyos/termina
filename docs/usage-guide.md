@@ -158,11 +158,9 @@ the name of a variable. The slides that change must be rendered again.
 
 ## Speaker notes
 
-Write what you want to say in *Speaker notes*, below *Review*. The app saves the notes when you
-click out of the box. A change to the notes does not render the slide again.
-
-*Only on this pause* holds the notes of the pause that the video shows. The presenter shows them
-after the notes of the slide.
+Tell Claude what you want to say on a slide or on one of its pauses, or use the `speaker` command
+(see the CLI reference). A change to the notes does not render the slide again. The presenter
+shows the notes of a pause after the notes of the slide.
 
 The presenter shows the notes in its second window, if the computer has two screens. The HTML and
 PowerPoint exports also have the notes. The app keeps the notes in the `speaker-notes.json` file of
