@@ -654,6 +654,13 @@ def test_manim_ce_renders_only_what_manimgx_could_not(result, saves, expected):
     assert bool(said) == (len(calls) == 2)
 
 
+def test_only_manim_ce_when_the_talk_says_so():
+    draw, calls, saved = draws([(0, [])])
+    targets = [studio.Slide(1, 0, "slide_a", "a", "", "diapositivas/a.py", True)]
+    studio._draw(draw, targets, saved, "720p", print, gx=False)
+    assert calls == [("ce", ["a"])]
+
+
 def png(width, height):
     """An 8-bit RGB PNG, like the frames that ffmpeg writes. The pixels go in two IDAT chunks."""
     def chunk(kind, data):

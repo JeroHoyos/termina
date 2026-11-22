@@ -14,7 +14,8 @@ Run it with the `studio.cmd` launcher in `termina/` (or, from the talks folder, 
                                             --reel: the same, vertical at 9:16 for the phone
     studio <talk> info [--title "…"] [--about "…"] [--resolution 720p] …
                                             its talk.manimrs: what the talk is (or changes it)
-                                            (--kind video|reel, --music <file> under the MP4)
+                                            (--kind video|reel, --music <file> under the MP4,
+                                            --engine auto|manim-ce: ManimGX first, or only Manim CE)
     studio <talk> chiptune                  new 8-bit music for a video, under its MP4
     studio <talk> forget                    takes it off the list, its folder stays as it is
     studio <talk> list                      its slides and their status
@@ -102,7 +103,9 @@ REGISTRY_LOCK = HERE.parent / ".talks.lock"
 PROJECT_FILE = "talk.manimrs"
 SPEAKER_FILE = "speaker-notes.json"
 PROJECT_FIELDS = {"title": "", "about": "", "author": "", "language": "es", "resolution": "1080p",
-                  "numbers": "off", "kind": "slides", "music": ""}
+                  "numbers": "off", "kind": "slides", "music": "", "engine": "auto"}
+# auto: ManimGX first, Manim CE for what it cannot draw. manim-ce: only Manim CE.
+ENGINES = ("auto", "manim-ce")
 # What a project makes: a talk of slides to present, one video, or one vertical video (a reel).
 KINDS = ("slides", "video", "reel")
 LANGUAGE = re.compile(r"[a-z]{2,3}(-[A-Za-z]{2,4})?")
@@ -373,22 +376,26 @@ def ensure_project(talk: Talk):
         pass  # a read-only folder still works, with the defaults
 
 
+# What each field accepts, and what the error says when it is something else.
+FIELD_CHECKS = {
+    "title": (bool, "The talk needs a title"),
+    "resolution": (QUALITIES.__contains__, "The resolution is 480p, 720p or 1080p"),
+    "numbers": (("on", "off").__contains__, "The page numbers are on or off"),
+    "language": (LANGUAGE.fullmatch, "The language is a code like es or en"),
+    "kind": (KINDS.__contains__, "The kind is slides, video or reel"),
+    "music": (lambda v: ".." not in v and not Path(v).is_absolute(),
+              "The music is a sound file in the folder of the video"),
+    "engine": (ENGINES.__contains__, "The engine is auto or manim-ce"),
+}
+
+
 def _clean_field(k: str, v) -> str:
     if k not in PROJECT_FIELDS:
         raise RuntimeError(f"A talk has no “{k}”")
     v = str(v).strip() if k == "about" else " ".join(str(v).split())
-    if k == "title" and not v:
-        raise RuntimeError("The talk needs a title")
-    if k == "resolution" and v not in QUALITIES:
-        raise RuntimeError("The resolution is 480p, 720p or 1080p")
-    if k == "numbers" and v not in ("on", "off"):
-        raise RuntimeError("The page numbers are on or off")
-    if k == "language" and not LANGUAGE.fullmatch(v):
-        raise RuntimeError("The language is a code like es or en")
-    if k == "kind" and v not in KINDS:
-        raise RuntimeError("The kind is slides, video or reel")
-    if k == "music" and (".." in v or Path(v).is_absolute()):
-        raise RuntimeError("The music is a sound file in the folder of the video")
+    ok, message = FIELD_CHECKS.get(k, (None, ""))
+    if ok and not ok(v):
+        raise RuntimeError(message)
     return v[:4000]
 
 
@@ -945,7 +952,8 @@ def _render_at(talk: Talk, targets: list[Slide], quality: str, log, on_start) ->
             log("Setting up the talk's Python, the first time takes a few minutes…")
         log(f"Rendering {len(targets)} slide(s) of {talk.id} at {quality}…")
         started = time.time()
-        code, lines = _draw(draw, targets, saved, quality, log)
+        code, lines = _draw(draw, targets, saved, quality, log,
+                            gx=project_info(talk)["engine"] != "manim-ce")
     if code != 0:
         log("The render failed, last lines:")
         _fail(lines, 30, "the render failed", log)
@@ -953,16 +961,21 @@ def _render_at(talk: Talk, targets: list[Slide], quality: str, log, on_start) ->
     return saved
 
 
-def _draw(draw, targets: list[Slide], saved: list[str], quality: str, log) -> tuple[int, list[str]]:
+def _draw(draw, targets: list[Slide], saved: list[str], quality: str, log,
+          gx=True) -> tuple[int, list[str]]:
     """ManimGX draws the slides. If it stops with an error of Python or of uv (a cancelled
-    render gives neither), Manim CE draws the slides that are not saved."""
+    render gives neither), Manim CE draws the slides that are not saved. Without `gx`, only
+    Manim CE draws."""
+    manim_ce = ["uv", "run", "python", "-m", "manim_slides", "render", "--quality",
+                QUALITIES[quality], "--progress_bar", "none", str(SCENE), "Slides"]
+    if not gx:
+        return draw(manim_ce, targets)
     code, lines = draw(["uv", "run", "--with", MANIMGX, "python", str(SCENE_GX)], targets)
     left = [s for s in targets if s.name not in saved]
     if not left or code == 0 or not any(l.startswith(("Traceback", "error:")) for l in lines):
         return code, lines
     log(f"ManimGX could not draw {len(left)} slide(s), Manim CE draws them…")
-    return draw(["uv", "run", "python", "-m", "manim_slides", "render", "--quality",
-                 QUALITIES[quality], "--progress_bar", "none", str(SCENE), "Slides"], left)
+    return draw(manim_ce, left)
 
 
 def _fail(lines: list[str], last: int, message: str, log):

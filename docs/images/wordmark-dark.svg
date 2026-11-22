@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="30 30 1730 458">
+  <title>Termina</title>
+  <g fill="#f6f6f3">
+    <rect x="56" y="40" width="400" height="100" rx="50"/>
+    <rect x="206" y="40" width="100" height="295" rx="50"/>
+  </g>
+  <circle cx="256" cy="422" r="56" fill="#2b59ff"/>
+  <g fill="none" stroke="#f6f6f3" stroke-width="46" transform="translate(-16 0)" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M524 235H668A72 72 0 1 0 647 286"/>
+    <path d="M764 307V163M764 235A72 72 0 0 1 836 163H854"/>
+    <path d="M950 307V163M950 215A52 52 0 0 1 1054 215V307M1054 215A52 52 0 0 1 1158 215V307"/>
+    <path d="M1254 307V163"/>
+    <path d="M1350 307V163M1350 235A72 72 0 0 1 1494 235V307"/>
+    <circle cx="1662" cy="235" r="72"/>
+    <path d="M1734 163V307"/>
+  </g>
+  <circle cx="1238" cy="84" r="30" fill="#2b59ff"/>
+</svg>

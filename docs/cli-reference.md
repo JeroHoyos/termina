@@ -50,7 +50,7 @@ Options of `new-talk`:
 | `studio <talk> list` | Lists the slides with their status. This is the default command. |
 | `studio <talk> status` | Writes the status of the talk as JSON. |
 | `studio <talk> info [--json]` | Shows the fields of `talk.manimrs`. |
-| `studio <talk> info --<field> "<value>"` | Changes fields of `talk.manimrs`: `title`, `about`, `author`, `language`, `resolution`. |
+| `studio <talk> info --<field> "<value>"` | Changes fields of `talk.manimrs`: `title`, `about`, `author`, `language`, `resolution`, `numbers`, `kind`, `music`, `engine`. |
 | `studio <talk> forget` | Removes the talk from the list. The files of the talk do not change. |
 | `studio <talk> render <slide>...` | Renders only these slides. |
 | `studio <talk> render --pending` | Renders the slides that are not up to date. |

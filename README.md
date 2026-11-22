@@ -1,9 +1,11 @@
-
 <p align="center">
-  <img src="crates/desktop/termina/icons/icon.svg" width="96" alt="The Termina logo">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/images/wordmark-dark.svg">
+    <img src="docs/images/wordmark.svg" width="440" alt="Termina">
+  </picture>
 </p>
 
-<h1 align="center">Termina</h1>
+<h3 align="center">Talks, videos and reels made with math.<br>One slide at a time, with Claude.</h3>
 
 <p align="center">
   <img src="https://img.shields.io/badge/Windows%20%7C%20Linux%20(experimental)-111827?style=for-the-badge" alt="Windows and Linux" />
@@ -11,44 +13,92 @@
   <img src="https://img.shields.io/badge/status-pre--release%200.6-b45309?style=for-the-badge" alt="Pre-release 0.6" />
 </p>
 
-Termina is an open-source desktop app for talks, videos and reels made with
-[Manim Slides](https://github.com/jeertmans/manim-slides). Render only the slide that changed,
-point at what is wrong, and let an agent fix it.
+<p align="center">
+  <a href="docs/images/trailer.mp4"><img src="docs/images/trailer.gif" width="860" alt="The trailer of Termina: the logo, a talk about circles, the render of one slide, a mark on the slide, Claude fixes the slide, the export, a reel with 8-bit music"></a>
+  <br>
+  <a href="docs/images/trailer.mp4"><b>Watch the trailer with sound</b></a>
+</p>
 
-![A short tour of the app: the slides of a talk about circles, a mark on a slide, the render of only what changed, the approval, the export, and a new reel with 8-bit music](docs/images/trailer.gif)
-
-[Watch the trailer as a video, with its 8-bit music](docs/images/trailer.mp4)
+Termina is an open-source desktop app for [Manim Slides](https://github.com/jeertmans/manim-slides).
+You write each slide in Python, with the animations of Manim. Termina renders only the slide that
+changed. You point at what is wrong, and Claude fixes it.
 
 > [!IMPORTANT]
 > **This is a pre-release. Version 1.0 is not out.** There is no installer, Linux is experimental,
 > and the file formats can change. The project does not take donations at this time.
 
-## Why
+<p align="center">
+  <img src="docs/images/termina.png" width="860" alt="The window of Termina: the slides on the left, the slide video and the review in the center, the Claude chat on the right">
+</p>
+
+## Render one slide. Keep the others.
 
 Manim Slides renders a talk as one scene. If you render some slides, you lose the other slides.
 If you render all the slides, you wait for all of them.
 
-Termina keeps each slide in a file of its own, with its videos. When you render one slide,
-the other slides do not change. Each slide still starts with the transition from the slide before
-it.
+Termina keeps each slide in a file of its own, with its videos. *Render pending* renders only the
+new slides and the slides that changed. Each slide still starts with the transition from the slide
+before it.
 
-## Features
-
-- **One slide at a time.** *Render pending* renders only the new slides and the slides that
-  changed.
-- **Point, draw, move.** Mark the frame of a slide. The marked frame goes to the agent with your
-  note.
-- **A chat that sees the slides.** Claude renders a slide, examines the image of each pause and
-  shows you the result.
-- **Your agent, your model.** The tools of the app are an MCP server. Refer to
-  [Other agents](docs/other-agents.md).
-- **Present and export.** Full screen, HTML, PDF, MP4 and GIF.
-- **A video or a reel.** A video has no pauses: its scenes play one after the other in one MP4. A
-  reel is a vertical video at 9:16, for the phone. Put music under it, or make new 8-bit music.
-
-<p>
-  <img src="docs/images/mark.png" width="700" alt="Marks on a slide: a point, a circle and an arrow">
+<p align="center">
+  <img src="docs/images/features/render-one.jpg" width="760" alt="Five slides. One slide changed, and only that slide renders again.">
 </p>
+
+## Guide every slide.
+
+Tell Claude what you want in the way that is easiest for you. Use one way, or use them together.
+
+<p align="center">
+  <img src="docs/images/features/mark.jpg" width="760" alt="A point with the note make it red, a circle around the heart and an arrow that moves the counter up">
+</p>
+
+| Way | How |
+| --- | --- |
+| **Point at a part** | In *Mark on the slide*, click a part of the frame and write what to change there. |
+| **Draw around it** | Drag on the frame to draw a line around an element. |
+| **Show where it goes** | Drag from an element to its new position. The app draws an arrow. |
+| **Write a note** | Write in *Review*. Save many notes, then send them together. |
+| **Show an image** | Attach, paste or drop an image in the note, for example a sketch. |
+| **Edit it yourself** | Click *Edit on the slide*. Drag an object, retype a text or a formula, or add an element. |
+| **Ask in the chat** | Type a request. `@` mentions a file and `/` runs a command. Or click *Improve this slide*. |
+
+The marks go to Claude as an image of the frame, with your note. Refer to
+[Mark on the slide](docs/usage-guide.md#mark-on-the-slide) and
+[Edit on the slide](docs/usage-guide.md#edit-on-the-slide).
+
+<p align="center">
+  <img src="docs/images/features/edit.jpg" width="760" alt="Edit on the slide: boxes on the objects, a new title and the counter dragged to the top">
+</p>
+
+## Claude fixes it.
+
+The chat is [Claude Code](https://claude.com/claude-code), inside the window. Claude edits the
+slide, renders it, and examines the image of each pause. Then it shows you the result. When the
+slide is correct, click *Approve*.
+
+<p align="center">
+  <img src="docs/images/features/chat.jpg" width="760" alt="The chat: Claude reads the slide, edits it, renders it and looks at it">
+</p>
+
+## Videos and reels, with music.
+
+A video has no pauses: its scenes play one after the other in one MP4. A reel is a vertical video
+at 9:16, for the phone. Put your music under it, or let Termina make new 8-bit music.
+
+<p align="center">
+  <img src="docs/images/features/reels.jpg" width="760" alt="A 16:9 video becomes a 9:16 reel, with the bars of the 8-bit music">
+</p>
+
+## And more
+
+| | |
+| --- | --- |
+| **Present** | Full screen, with the presenter of Manim Slides. |
+| **Export** | HTML, PDF, MP4 and GIF. |
+| **ManimGX first** | The engine tries [ManimGX](https://github.com/academa-labs/manimgx) first. If it fails, Manim CE renders. |
+| **Your agent, your model** | The tools of the app are an MCP server. Refer to [Other agents](docs/other-agents.md). |
+| **480p, 720p, 1080p** | Review at 480p. Present at 1080p. |
+| **Windows and Linux** | The app runs on Windows 10 and 11. Linux is experimental. |
 
 ## Examples
 
@@ -79,8 +129,8 @@ cargo build --release
 .\target\release\termina.exe
 ```
 
-The app runs on Windows 10 and 11. Linux is experimental and macOS is not supported. Refer to
-[Installation](docs/installation.md) and [Problems and solutions](docs/problems.md).
+macOS is not supported. Refer to [Installation](docs/installation.md) and
+[Problems and solutions](docs/problems.md).
 
 ## Usage
 
@@ -139,4 +189,4 @@ Termina stands on [Manim Community](https://www.manim.community/),
 [Recordly](https://github.com/webadderallorg/Recordly) for this page and
 [ArtCraft](https://github.com/storytold/artcraft) for the layout of the code. The
 project is not a part of Manim Community, ManimGX, Manim Slides or Anthropic. Claude is a trademark of
-Anthropic.
+Anthropic. The music of the trailer is original. Its 8-bit part comes from the 8-bit music of Termina.

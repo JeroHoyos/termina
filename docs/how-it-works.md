@@ -48,6 +48,9 @@ ManimGX does not have all of Manim CE. If a talk imports a part of Manim CE that
 have, ManimGX stops with an error. Then Manim CE renders the slides that ManimGX did not save. A
 cancelled render does not go to Manim CE.
 
+To render a talk only with Manim CE, set "Render with" to "Only Manim CE" in the talk details. This
+sets the `engine` field of `talk.manimrs` to `manim-ce`.
+
 ## When a slide must be rendered again
 
 The engine keeps three hashes for each render in `_renders.json`:

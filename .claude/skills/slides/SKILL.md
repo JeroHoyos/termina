@@ -71,7 +71,9 @@ A video (`new-talk "Title" --video`, or *Video 16:9* in the app) has `"kind": "v
 a cut, so a scene's `build(scene)` never calls `scene.next_slide()`, and the presenter does not
 open. A scene plays straight into the next one: give it enough `scene.wait()` to be read. The
 result is `export --mp4` (with the `music` of its `talk.manimrs`) or `export --narrated` (a voice
-says the speaker notes of each scene). Export only when the user asks.
+says the speaker notes of each scene). Export only when the user asks. For a mathematical video
+(the style of 3Blue1Brown), the `manim-math` skill gives the form of a scene: one caption at the
+top that tells each beat, one tracker that moves the picture, and the conclusion at the end.
 
 A reel (`new-talk "Title" --reel`, `"kind": "reel"`) is a video at 9:16. Its frame is 8 units wide
 and 14.2 high: put the layout in a column, keep text and objects inside `config.frame_width`, and

@@ -22,16 +22,10 @@ function actions() {
     {section: 'Model', icon: 'switch', label: 'Switch model…', hint: 'Change the AI model', trailing: model?.displayName, run: () => $('#c-model').click()},
     {section: 'Model', icon: 'gauge', label: 'Effort', hint: 'How much Claude thinks before answering', trailing: chat.effort || 'default', run: () => $('#c-effort').click(), hidden: !model?.supportsEffort},
     {section: 'Model', icon: 'auto', label: 'Fast mode', hint: 'Faster answers from the same model', toggle: chat.fast, run: toggleFast, hidden: model && model.supportsFastMode === false},
-    {section: 'Model', icon: 'switch', label: 'Switch models when a message is flagged', hint: 'When safeguards flag a message, switch to another model to keep chatting, when off the conversation pauses', toggle: chat.switchOnFlag, run: toggleSwitchOnFlag},
     {section: 'Model', icon: 'user', label: 'Account and usage…', hint: 'View account info and usage limits', run: showUsage},
-    {section: 'Customize', icon: 'palette', label: 'Output styles', hint: 'Change how Claude formats its answers', trailing: chat.outputStyle, run: chooseOutputStyle},
-    {section: 'Customize', icon: 'server', label: 'MCP servers', hint: 'See, reconnect, enable or disable MCP servers', run: showMcp},
-    {section: 'Customize', icon: 'hook', label: 'Hooks', hint: 'View and edit hooks', run: showHooks},
     {section: 'Customize', icon: 'shield', label: 'Permissions', hint: 'View and edit permission rules', run: showPermissions},
     {section: 'Customize', icon: 'brain', label: 'Memory', hint: 'What Claude remembers about this folder', run: showMemory},
     {section: 'Customize', icon: 'doc', label: 'Instructions', hint: 'Edit CLAUDE.md files', run: showInstructions},
-    {section: 'Customize', icon: 'puzzle', label: 'Plugins', hint: 'Install, enable or disable plugins', run: showPlugins},
-    {section: 'Customize', icon: 'box', label: 'Sandbox', hint: 'How commands are sandboxed', run: showSandbox},
     {section: 'Settings', icon: 'info', label: 'Status', hint: 'Version, session, account, model and server details', run: showStatus},
     {section: 'Settings', icon: 'gear', label: 'Chat settings…', hint: 'Focus view, timestamps and how to send', run: () => $('#c-settings').click()},
     {section: 'Support', icon: 'help', label: 'View help docs', hint: 'Open the Claude Code documentation', run: () => openLink('https://code.claude.com/docs')},
@@ -124,21 +118,6 @@ async function toggleFast() {
   catch (e) { toast(`Could not change fast mode: ${e.message || e}`); }
 }
 
-async function toggleSwitchOnFlag() {
-  const on = !chat.switchOnFlag;
-  try { await ready(); await request('update_settings', {source: 'userSettings', settings: {switchModelsOnFlag: on}}); chat.switchOnFlag = on; }
-  catch (e) { toast(String(e.message || e)); }
-}
-
-function chooseOutputStyle() {
-  const styles = chat.init?.available_output_styles || ['default'];
-  choiceMenu($('#c-actions'), [{head: 'Output style'}, ...styles.map(s => ({label: s === 'default' ? 'Default' : s, value: s, on: s === chat.outputStyle}))],
-    async it => {
-      try { await ready(); await request('apply_flag_settings', {settings: {outputStyle: it.value}}); chat.outputStyle = it.value; toast(`Output style: ${it.label}`); }
-      catch (e) { toast(String(e.message || e)); }
-    });
-}
-
 function showUsage() {
   openSheet('Account and usage', async body => {
     await ready();
@@ -158,55 +137,6 @@ function showStatus() {
     await ready();
     const st = await request('get_status');
     body.innerHTML = (st.sections || []).map(sec => `<h5>${esc(sec.title)}</h5><dl class="kv">${(sec.rows || []).map(r => `<dt>${esc(r.label)}</dt><dd>${esc(clean(r.value))}</dd>`).join('')}</dl>`).join('') || '<div class="hint">No status</div>';
-  });
-}
-
-function showMcp() {
-  openSheet('MCP servers', async body => {
-    await ready();
-    const paint = async () => {
-      const servers = (await request('mcp_status')).mcpServers || [];
-      body.innerHTML = '<div class="hint">The servers Claude can use in this conversation, “studio” is this app</div>' + servers.map((s, i) => `<div class="item"><span class="grow"><b>${esc(s.name)}</b><small>${esc([s.scope || s.source, s.config?.url || s.config?.command].filter(Boolean).join(', '))}</small>${s.error ? `<small>${esc(s.error)}</small>` : ''}</span><span class="status-chip ${esc(s.status)}">${esc(String(s.status).replace('-', ' '))}</span>
-        ${s.status === 'needs-auth' ? `<button class="btn small" data-a="auth" data-i="${i}">Sign in</button>` : `<button class="btn small" data-a="reconnect" data-i="${i}">Reconnect</button>`}
-        ${s.name === 'studio' ? '' : `<button class="btn small subtle" data-a="toggle" data-i="${i}">${s.status === 'disabled' ? 'Enable' : 'Disable'}</button>`}</div>`).join('');
-      body.onclick = async e => {
-        const b = (e.target as Element).closest('button[data-a]');
-        if (!b) return;
-        const s = servers[Number(b.dataset.i)];
-        b.disabled = true;
-        try {
-          if (b.dataset.a === 'reconnect') await request('mcp_reconnect', {serverName: s.name});
-          else if (b.dataset.a === 'toggle') await request('mcp_toggle', {serverName: s.name, enabled: s.status === 'disabled'});
-          else {
-            const r = await request('mcp_authenticate', {serverName: s.name});
-            const url = r.authUrl || r.auth_url || r.url;
-            if (url) openLink(url);
-          }
-        } catch (err) { toast(String(err.message || err)); }
-        paint().catch(() => {});
-      };
-    };
-    await paint();
-  });
-}
-
-function settingsPath(kind) {
-  return kind === 'user' ? `${home}\\.claude\\settings.json` : `${root}\\.claude\\settings.json`;
-}
-
-function showHooks() {
-  openSheet('Hooks', async body => {
-    await ready();
-    const h = await request('get_hooks_listing');
-    const hooks = h.hooks || [];
-    const text = x => x.command || x.hook?.command || x.prompt || JSON.stringify(x.hook || x);
-    body.innerHTML = '<div class="hint">Commands Claude Code runs on its own at certain moments, like before a tool runs</div>'
-      + (hooks.length ? hooks.map(x => `<div class="item"><span class="grow"><b>${esc(x.event || x.hookEventName || '')}${x.matcher ? ` ${esc(x.matcher)}` : ''}</b><small>${esc(text(x))}</small>${x.source ? `<small>${esc(x.source)}</small>` : ''}</span></div>`).join('') : '<div class="hint">There are no hooks</div>')
-      + `<h5>Edit them in</h5><div class="actions"><button class="btn" data-f="user">${icon('doc')}Your settings</button><button class="btn" data-f="project">${icon('doc')}This folder's settings</button></div>`;
-    body.onclick = e => {
-      const f = (e.target as Element).closest('button[data-f]')?.dataset.f;
-      if (f) invoke('open_path', {path: settingsPath(f), create: true}).catch(err => toast(String(err)));
-    };
   });
 }
 
@@ -280,29 +210,6 @@ function showInstructions() {
       const b = (e.target as Element).closest('button[data-path]');
       if (b) invoke('open_path', {path: b.dataset.path, create: b.dataset.exists !== 'true'}).catch(err => toast(String(err)));
     };
-  });
-}
-
-function showPlugins() {
-  openSheet('Plugins', async body => {
-    await ready();
-    const plugins = chat.plugins || [];
-    body.innerHTML = '<div class="hint">Plugins add commands, agents, skills and servers to Claude Code</div>'
-      + (plugins.length ? plugins.map(p => `<div class="item"><span class="grow"><b>${esc(p.name)}</b><small>${esc(p.source || p.path || '')}</small></span></div>`).join('') : '<div class="hint">The list shows up after your first message in this conversation</div>')
-      + `<div class="actions"><button class="btn" id="pl-reload">${icon('again')}Reload plugins</button><button class="btn" id="pl-manage">${icon('terminal')}Install or remove in Terminal</button></div>
-      <div class="hint">To install or remove plugins, type /plugin in the terminal that opens, then reload them here</div>`;
-    $('#pl-reload').onclick = async () => { try { await request('reload_plugins'); toast('Plugins reloaded'); } catch (e) { toast(String(e.message || e)); } };
-    $('#pl-manage').onclick = () => invoke('open_terminal', {session: null}).catch(e => toast(String(e)));
-  });
-}
-
-function showSandbox() {
-  openSheet('Sandbox', async body => {
-    await ready();
-    const s = await request('get_sandbox_dialog');
-    body.innerHTML = s.supported === false
-      ? `<div class="hint">Sandboxing isn't available ${s.unsupported_reason === 'platform' ? 'on Windows' : 'on this computer'}, so commands run under your permission rules instead</div>`
-      : `<dl class="kv"><dt>Status</dt><dd>${s.enabled ? 'On' : 'Off'}</dd><dt>Mode</dt><dd>${esc(s.mode || '')}</dd></dl>`;
   });
 }
 

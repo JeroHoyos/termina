@@ -16,6 +16,7 @@ $('#quality').onclick = async e => {
   if (!q || !talk || q === quality) return;
   const before = quality, asked = talk;
   quality = q; paintQuality(); paintViewer(false);
+  save('studio.quality', q);
   qualitySaving++;
   try {
     await invoke('save_talk', {talk: asked, fields: {resolution: q}});

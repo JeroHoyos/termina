@@ -13,12 +13,12 @@ const chat = {
   startedAt: 0, ticker: null, interrupted: false, stderr: [],
   // Every message of the conversation in order, with its id: “rewind” goes back to one of them.
   timeline: [], sentBubbles: [], msgEls: new Map(),
-  fast: false, switchOnFlag: true, outputStyle: 'default',
+  fast: false,
   focus: load('studio.focus', '0') === '1',
   times: load('studio.times', '1') === '1',
   ctrlEnter: load('studio.ctrlEnter', '0') === '1',
   claudeInstalled: true,
-  plugins: null as any, warnedLimit: false,
+  warnedLimit: false,
 };
 const chatEl = $('#chat');
 const input = $('#c-input');
@@ -48,10 +48,8 @@ async function startSession({resume = null, resumeSessionAt = null, forkSession 
   chat.stderr = [];
   chat.starting = request('initialize').then(init => {
     chat.init = init;
-    if (init.output_style) chat.outputStyle = init.output_style;
     chat.fast = init.fast_mode_state === 'on';
     paintToolbar();
-    request('get_settings').then(s => { chat.switchOnFlag = s.effective?.switchModelsOnFlag ?? true; }).catch(() => {});
     return init;
   }).catch(e => { notice(`Claude did not start: ${e.message || e}`, 'error'); });
   return chat.starting;
@@ -126,9 +124,7 @@ function onSystem(m) {
   if (m.subtype === 'init') {
     chat.sessionId = m.session_id || chat.sessionId;
     chat.modelId = m.model || chat.modelId;
-    if (m.output_style) chat.outputStyle = m.output_style;
     if (m.fast_mode_state) chat.fast = m.fast_mode_state === 'on';
-    if (m.plugins) chat.plugins = m.plugins;
     paintToolbar();
   } else if (m.subtype === 'status') {
     if (m.status === 'compacting') working('Compacting the conversation');

@@ -90,7 +90,7 @@ pub async fn import_talk(s: St<'_>, window: tauri::WebviewWindow, place: String)
 /// Changes what talk.manimrs says (title, what it is about, resolution…); returns all its fields.
 #[tauri::command]
 pub async fn save_talk(s: St<'_>, talk: String, fields: HashMap<String, String>) -> Result<Value, String> {
-    const FIELDS: [&str; 8] = ["title", "about", "author", "language", "resolution", "numbers", "kind", "music"];
+    const FIELDS: [&str; 9] = ["title", "about", "author", "language", "resolution", "numbers", "kind", "music", "engine"];
     check_talk(&talk)?;
     let mut args = vec![talk, "info".to_string(), "--json".into()];
     for (k, v) in fields {

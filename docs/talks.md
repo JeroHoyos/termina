@@ -48,6 +48,7 @@ You can read it and change it with a text editor:
 | `language` | The language of the slides, as a code: `es`, `en`, `pt-BR`. |
 | `numbers` | `on` puts a page number in the corner of each slide. The default is `off`. |
 | `resolution` | The resolution of the talk: `480p`, `720p` or `1080p`. A slide without its own resolution renders at this resolution, and is up to date only at this resolution. |
+| `engine` | `auto` renders with ManimGX first and with Manim CE if ManimGX fails. `manim-ce` renders only with Manim CE. The default is `auto`. |
 
 If a talk has no `talk.manimrs` file, the engine makes one the first time that it opens the talk.
 It takes the title and the first paragraph of the `README.md` of the talk. The engine keeps all other

@@ -214,7 +214,7 @@ function paintNewTalk() {
       <textarea id="t-topic" placeholder="Who it is for and what it covers, for example: “for beginners, what a container is, images, volumes and docker compose”"></textarea>
       <span class="hint">It is saved with the talk; if you write it, Claude proposes the slides and waits for your approval before making them</span></div>
     <div class="field"><label for="t-language">Language of the slides</label>
-      <select id="t-language">${languageOptions('es')}</select></div>
+      <select id="t-language">${languageOptions(load('studio.language', 'es'))}</select></div>
     <div class="field"><span class="field-name" id="t-where">Where</span>
       <div class="place" role="group" aria-labelledby="t-where"><span class="place-path" id="t-place"></span>
         <button type="button" class="btn" id="t-choose">Choose folder</button></div></div>
@@ -256,6 +256,10 @@ function paintNewTalk() {
         place, folder: folder.value.trim(), kind: kind.value,
       });
       save('studio.place', place);
+      save('studio.language', $('#t-language').value);
+      // A new talk starts at the resolution that the user chose last.
+      const q = load('studio.quality', '');
+      if (QUALITIES.includes(q) && q !== r.resolution) await invoke('save_talk', {talk: r.id, fields: {resolution: q}});
       newTalkDraft = null;
       await enterTalk(r);
       const video = kind.value !== 'slides', what = {slides: 'talk', video: 'video', reel: 'reel'}[kind.value];
@@ -292,6 +296,9 @@ function paintDetails() {
       <select id="d-theme">${data.theme ? '' : '<option value="">Its own colors</option>'}${THEMES.map(([v, n]) => `<option value="${v}">${n}</option>`).join('')}</select>
       <span class="hint">A change of colors needs a new render of the slides</span></div>`}
     <div class="checks"><label><input type="checkbox" id="d-numbers">Number the slides</label></div>
+    <div class="field"><label for="d-engine">Render with</label>
+      <select id="d-engine"><option value="auto">ManimGX, then Manim CE</option><option value="manim-ce">Only Manim CE</option></select>
+      <span class="hint">ManimGX is faster, Manim CE draws what it cannot</span></div>
     ${(p.kind || 'slides') === 'slides' ? '' : `<div class="field"><label for="d-kind">Shape</label>
       <select id="d-kind"><option value="video">Video 16:9</option><option value="reel">Reel 9:16</option></select>
       <span class="hint">A change of shape needs a new render of the scenes</span></div>
@@ -308,8 +315,9 @@ function paintDetails() {
       <button type="button" class="btn subtle" id="d-cancel">Cancel</button>
       <button type="submit" class="btn primary" id="d-save">${icon('check')}Save</button>
     </div></form>`;
-  const fields = ['title', 'about', 'author', 'language', ...($('#d-kind') ? ['kind', 'music'] : [])];
+  const fields = ['title', 'about', 'author', 'language', 'engine', ...($('#d-kind') ? ['kind', 'music'] : [])];
   for (const f of fields) $(`#d-${f}`).value = p[f] || '';
+  $('#d-engine').value = p.engine || 'auto';
   if ($('#d-chiptune')) $('#d-chiptune').onclick = async e => {
     e.target.disabled = true;
     try {
