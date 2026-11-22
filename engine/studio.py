@@ -93,12 +93,14 @@ ROOT = HERE.parent.parent
 SCENE = HERE / "scene.py"
 # scene.py drawn by ManimGX, which is faster than Manim CE. Manim CE draws what it cannot.
 SCENE_GX = HERE / "scene_gx.py"
-MANIMGX = "manimgx>=0.1.1,<0.2"
+# An exact version: each render installs it, so a new release must not run without a review.
+MANIMGX = "manimgx==0.1.1"
 PANEL = HERE / "panel.html"
 # The talks the Studio knows, wherever they are: [{"id": "charla-git", "path": "…"}]. A path inside
 # the talks folder is kept relative to it, so the whole folder can be moved.
 REGISTRY = HERE.parent / "talks.json"
 REGISTRY_LOCK = HERE.parent / ".talks.lock"
+EXAMPLES = HERE.parent / "examples"  # the list shows the talks in it with "(example)"
 # Each talk's own file with what it is. JSON, so the app, the panel and Claude read it alike.
 PROJECT_FILE = "talk.manimrs"
 SPEAKER_FILE = "speaker-notes.json"
@@ -383,7 +385,8 @@ FIELD_CHECKS = {
     "numbers": (("on", "off").__contains__, "The page numbers are on or off"),
     "language": (LANGUAGE.fullmatch, "The language is a code like es or en"),
     "kind": (KINDS.__contains__, "The kind is slides, video or reel"),
-    "music": (lambda v: ".." not in v and not Path(v).is_absolute(),
+    # No anchor: on Windows "/x" and "C:x" are not absolute, but they leave the folder.
+    "music": (lambda v: ".." not in v and not Path(v).anchor,
               "The music is a sound file in the folder of the video"),
     "engine": (ENGINES.__contains__, "The engine is auto or manim-ce"),
 }
@@ -1122,10 +1125,12 @@ def _export_video(talk: Talk, names: list[str], fmt: str, file: Path, log) -> Pa
     if not ff:
         raise RuntimeError("The video needs ffmpeg, install it and try again")
     music = project_info(talk)["music"] if fmt == "mp4" else ""
-    if music and not (talk.pres / music).is_file():
+    # talk.manimrs can come with an imported talk: its music must stay in the folder.
+    song = (talk.pres / music).resolve()
+    if music and not (song.is_relative_to(talk.pres.resolve()) and song.is_file()):
         raise RuntimeError(f"There is no music file “{Path(music).name}” in the folder")
     # The music plays again and again until the video ends.
-    sound = (["-stream_loop", "-1", "-i", str(talk.pres / music)] if music else [])
+    sound = (["-stream_loop", "-1", "-i", str(song)] if music else [])
     mix = ["-map", "0:v", "-map", "1:a", "-shortest", "-c:a", "aac"] if music else ["-an"]
     import tempfile
     log(f"Joining the videos of {len(names)} slide{'s' if len(names) != 1 else ''}…")
@@ -3437,7 +3442,8 @@ def _cmd_talks(args: list[str]):
     for t in everything:
         migrate(t)
         ensure_project(t)
-    found = [{"id": t.id, "title": t.title, "path": str(t.pres)} for t in everything]
+    found = [{"id": t.id, "title": t.title + (" (example)" if EXAMPLES in t.pres.parents else ""),
+              "path": str(t.pres)} for t in everything]
     if "--json" in args:
         return print(json.dumps(found, ensure_ascii=False))
     if not found:

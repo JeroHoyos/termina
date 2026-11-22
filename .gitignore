@@ -15,16 +15,10 @@ talks.json
 .talks.lock
 *.lnk
 
-# Documentation site (mkdocs build)
-site/
-
 # Frontend (TypeScript)
 frontend/node_modules/
 frontend/.tools/
 frontend/apps/studio/dist/
-
-# The folder of the app before the workspace
-app/
 
 # Renders of the example talks
 examples/*/diapos/

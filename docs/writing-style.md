@@ -9,7 +9,7 @@ the interface or to the descriptions of the MCP tools.
 
 ## Words
 
-- Use one word for one thing. This documentation has a list of [terms](index.md#terms).
+- Use one word for one thing.
 - Use the approved words of the STE dictionary, only with their approved definition.
 - You can use technical names: names of files, commands, keys, buttons and programs.
 - You can use technical verbs for the work of a computer: render, install, click, type, drag,

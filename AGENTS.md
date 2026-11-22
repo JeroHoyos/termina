@@ -35,7 +35,7 @@ desktop app for Windows and Linux (Rust and Tauri), an engine in Python and a we
 | `crates/lib/` | Libraries without Tauri: `studio_engine` (calls to the engine, the job queue), `studio_agent` (the chat), `studio_shell` (links, folders, dialogs). |
 | `frontend/apps/studio/` | The window: HTML, CSS and TypeScript. `frontend/libs/` holds the types that the window and the engine share. |
 | `tests/test_studio.py` | The tests of the engine. |
-| `docs/` | The documentation. |
+| `docs/` | The writing style and the images of the README files. |
 
 ## Run and examine
 

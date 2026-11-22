@@ -120,8 +120,21 @@ def test_chiptune(talk):
     wav = video.pres / studio.CHIPTUNE_FILE
     assert wav.read_bytes()[:4] == b"RIFF"
     assert studio.project_info(video)["music"] == studio.CHIPTUNE_FILE
-    with pytest.raises(RuntimeError, match="music"):
-        studio.save_project(video, {"music": "../x.mp3"})
+    # "/x.mp3" is not absolute on Windows, but it goes to the root of the drive.
+    for outside in ["../x.mp3", "/x.mp3"] + (["C:x.mp3"] if os.name == "nt" else []):
+        with pytest.raises(RuntimeError, match="music"):
+            studio.save_project(video, {"music": outside})
+
+
+def test_export_keeps_the_music_in_the_folder(talk, tmp_path, monkeypatch):
+    """An imported talk.manimrs is not checked when it is saved: the export checks it."""
+    monkeypatch.setattr(studio.shutil, "which", lambda name: name)
+    secret = tmp_path / "secret.wav"
+    secret.write_bytes(b"RIFF")
+    project = talk.pres / studio.PROJECT_FILE
+    project.write_text(json.dumps({**talk.project, "music": str(secret)}), "utf-8")
+    with pytest.raises(RuntimeError, match="no music file"):
+        studio._export_video(talk, [], "mp4", tmp_path / "out.mp4", print)
 
 
 def test_register_gives_unique_ids(talk, tmp_path):
@@ -754,6 +767,12 @@ def test_command_line_talks(talk, capsys, tmp_path):
     studio.main([made["id"], "forget"])
     studio.main(["talks"])
     assert "charla-second-talk" not in capsys.readouterr().out
+
+
+def test_examples_say_so_in_the_list(talk, capsys, monkeypatch):
+    monkeypatch.setattr(studio, "EXAMPLES", talk.pres.parent)
+    studio.main(["talks", "--json"])
+    assert any(t["title"].endswith(" (example)") for t in json.loads(capsys.readouterr().out))
 
 
 # ───────────────────────────── web panel ─────────────────────────────
