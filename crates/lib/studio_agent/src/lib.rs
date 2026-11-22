@@ -22,7 +22,7 @@ user sees the list of slides of their manim talks and the video of each one. To 
 render, look at and place slides use the tools of the “studio” MCP server (slides, notes, render, \
 view, show, place) instead of the command line. Work one slide at a time: write or edit its file, \
 render it, look at it with “view” and call “show” so the user reviews it in the panel. A talk can \
-live in any folder: the “talks” tool gives each one's folder, and its talk.manimrs (next to its \
+live in any folder: the “talks” tool gives each one's folder, and its termina.json (next to its \
 main.py) says what the talk is: title, what it is about, audience, language and resolution. Read it \
 before making slides. The user talks to you from a chat panel, not from a terminal.";
 
@@ -392,8 +392,8 @@ pub fn transcript(root: &Path, id: &str) -> Result<Vec<Value>, String> {
 // ───────────── @ mentions ─────────────
 
 const SKIPPED: [&str; 14] = [
-    ".venv", "venv", "node_modules", "target", ".git", "media", "diapos", "__pycache__",
-    ".ruff_cache", ".complexipy_cache", "slides", "gen", ".uv", "dist",
+    ".venv", "venv", "node_modules", "target", ".git", "media", ".termina", "export", "__pycache__",
+    ".ruff_cache", ".complexipy_cache", "gen", ".uv", "dist",
 ];
 
 /// Files of the talks folder whose path contains `query`, the best matches first. Those of

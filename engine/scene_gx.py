@@ -1,6 +1,6 @@
 """scene.py, drawn by ManimGX in place of Manim CE: the same slides, faster.
 
-It is not used by hand: studio.py launches it from a talk's `presentacion/` folder with
+It is not used by hand: studio.py launches it from the folder of a talk's main.py with
 
     uv run --with manimgx python <path>/scene_gx.py
 

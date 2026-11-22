@@ -203,7 +203,7 @@ async function importTalk() {
   } catch (e) { toast(String(e)); }
 }
 
-// “Open a talk”: the folder of a talk, its presentacion folder or its talk.manimrs. An empty folder
+// “Open a talk”: the folder of a talk, its presentation folder or its termina.json. An empty folder
 // becomes the place of a new talk.
 async function openTalk() {
   const picked = await pickFolder('Open a talk: choose its folder', load('studio.place', '') || root);

@@ -10,7 +10,7 @@ $('#talk').onchange = e => {
   changeTalk(v); paintSkeleton(); act(Promise.resolve());
 };
 $('#talk-details').onclick = () => { if (!data) return; mode = 'details'; paintViewer(true); };
-// The talk's resolution is saved in its talk.manimrs, so the commands and Claude use it too.
+// The talk's resolution is saved in its termina.json, so the commands and Claude use it too.
 $('#quality').onclick = async e => {
   const q = (e.target as Element).closest('button')?.dataset.q;
   if (!q || !talk || q === quality) return;

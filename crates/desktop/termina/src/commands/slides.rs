@@ -218,7 +218,7 @@ pub async fn review(s: St<'_>, talk: String, name: String, status: String, note:
 #[tauri::command]
 pub fn open_exported(s: St<'_>, talk: String) -> Result<(), String> {
     let pres = s.engine.presentation(&talk).ok_or("There is no such talk")?;
-    let folder = pres.join("diapos").join("exported");
+    let folder = pres.join(studio_engine::EXPORTS);
     std::fs::create_dir_all(&folder).map_err(|e| e.to_string())?;
     studio_shell::open_folder(&folder)
 }

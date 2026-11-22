@@ -58,6 +58,24 @@
 | --- | --- |
 | <img src="docs/media/fourier-heart.gif" width="420" alt="Forty circles draw a heart"> | <img src="docs/media/lorenz-attractor.gif" width="420" alt="The Lorenz attractor"> |
 
+## The folder of a talk
+
+```text
+my-talk/
+  termina.json   what the talk is: title, topic, language, resolution
+  main.py        the order of the slides
+  style.py       the colors and the font
+  slides/        the code of the slides, one .py file for each slide
+  pictures/      the pictures that you add to the slides
+  export/        your exports: HTML, PDF, MP4, PowerPoint
+  .termina/      the renders. You can delete this folder. Termina renders the slides again.
+```
+
+If the folder holds more than the talk, for example practice notebooks, put the talk in
+`my-talk/presentation/`. Termina changes the names of an older talk when it opens the talk:
+`diapositivas/` becomes `slides/`, `diapos/` becomes `.termina/` and `talk.manimrs` becomes
+`termina.json`. The renders stay correct.
+
 ## Installation
 
 Pre-release: there is no installer. These programs are necessary: [uv](https://docs.astral.sh/uv/),

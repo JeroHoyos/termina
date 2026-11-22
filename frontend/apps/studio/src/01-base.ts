@@ -52,7 +52,7 @@ const FILTERS = [
 let base = '', root = '', home = '';
 let talks = [];
 let talk = load('studio.talk', '');
-// The talk's resolution, from its talk.manimrs; while a change is being saved, the old one that a
+// The talk's resolution, from its termina.json; while a change is being saved, the old one that a
 // refresh brings is not shown.
 let quality = '1080p', qualitySaving = 0;
 let filter = 'all';
@@ -60,7 +60,7 @@ let data = null, jobs = [], listSig = '', sel = null, part = 0, openedByClaude =
 let mode = 'view';            // view, new, rename, talk (the new talk form) or details (the talk's)
 let newTalkDraft = null;      // {place, folder}: the new talk form opened from an empty folder
 // The images of each note (“talk/slide” → attachments) until they go to Claude.
-// shortcut: they live in memory, so closing the app loses the ones not sent; save them in diapos/ if that hurts
+// shortcut: they live in memory, so closing the app loses the ones not sent; save them in .termina/ if that hurts
 const noteImages = new Map();
 // What is being written in each note (“talk/slide” → text) and was not saved or sent yet: going to
 // another slide, or to a form, and back keeps it.

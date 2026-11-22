@@ -26,11 +26,15 @@ const FOLDERS: [&str; 2] = ["termina", "manimrs-studio"];
 /// Where the engine lives inside the folder of the app.
 const SCRIPT: [&str; 2] = ["engine", "studio.py"];
 /// The talks the studio knows, wherever they are (studio.py writes it, the app only reads it):
-/// `{"talks": [{"id": "charla-git", "path": "charla-git/presentacion"}]}`, the paths inside the
+/// `{"talks": [{"id": "charla-git", "path": "charla-git/presentation"}]}`, the paths inside the
 /// talks folder relative to it.
 const REGISTRY: &str = "talks.json";
 /// Each talk's own file with what it is (title, what it is about, language, resolution).
-pub const PROJECT_FILE: &str = "talk.manimrs";
+pub const PROJECT_FILE: &str = "termina.json";
+/// What the studio renders, inside the folder of a talk (the same as RENDERS in studio.py).
+pub const RENDERS: &str = ".termina";
+/// What the user exports, inside the folder of a talk (the same as EXPORTS in studio.py).
+pub const EXPORTS: &str = "export";
 pub const QUALITIES: [&str; 3] = ["480p", "720p", "1080p"];
 /// A short order (status, list, an edit) that takes longer than this is stuck, and is stopped.
 const SHORT: Duration = Duration::from_secs(120);
@@ -38,7 +42,7 @@ const SHORT: Duration = Duration::from_secs(120);
 const STATUS_MAX_AGE: Duration = Duration::from_secs(30);
 /// The folders of a talk that never change its status (the same list as NOT_SHARED in studio.py).
 const NOT_SHARED: [&str; 8] = [
-    ".venv", "media", "slides", "diapos", "__pycache__", ".ruff_cache", ".complexipy_cache", ".git",
+    ".venv", "media", RENDERS, EXPORTS, "__pycache__", ".ruff_cache", ".complexipy_cache", ".git",
 ];
 
 #[derive(Clone)]
@@ -230,7 +234,7 @@ impl Engine {
             // Before studio.py makes the list for the first time: the talks next to the studio.
             return [talk.to_string(), format!("charla-{talk}")]
                 .into_iter()
-                .map(|n| self.root.join(n).join("presentacion"))
+                .flat_map(|n| ["presentation", "presentacion"].map(|sub| self.root.join(&n).join(sub)))
                 .find(|p| p.join("main.py").is_file());
         }
         let long = format!("charla-{talk}");
@@ -246,7 +250,7 @@ impl Engine {
         self.registry().into_iter().map(|(_, p)| p).filter(|p| p.join("main.py").is_file()).collect()
     }
 
-    /// The talk's resolution, from its talk.manimrs (1080p if it doesn't say).
+    /// The talk's resolution, from its termina.json (1080p if it doesn't say).
     pub fn resolution(&self, talk: &str) -> String {
         self.presentation(talk)
             .and_then(|p| std::fs::read_to_string(p.join(PROJECT_FILE)).ok())
@@ -301,7 +305,7 @@ impl Engine {
 }
 
 /// A number that changes whenever a file the status depends on changes: the talk's code, the
-/// bookkeeping and per-slide files in `diapos/`, its thumbnails, its talk.manimrs and the README
+/// bookkeeping and per-slide files in `.termina/`, its thumbnails, its termina.json and the README
 /// with the title.
 fn stamp(pres: &Path) -> u64 {
     let mut h = DefaultHasher::new();
@@ -311,7 +315,7 @@ fn stamp(pres: &Path) -> u64 {
         add_file(&mut h, &talk.join("README.md"));
     }
     add_code(&mut h, pres);
-    let renders = pres.join("diapos");
+    let renders = pres.join(RENDERS);
     add_files(&mut h, &renders);
     add_files(&mut h, &renders.join("_thumbnails"));
     h.finish()

@@ -1,8 +1,8 @@
 """The manim-slides presenter with full screen that behaves.
 
-It is not used by hand: studio.py launches it from a talk's `presentacion/` folder with
+It is not used by hand: studio.py launches it from the folder of a talk's main.py with
 
-    uv run python <path>/present.py --full-screen --folder diapos <slide>... [--sacn <n>]
+    uv run python <path>/present.py --full-screen --folder .termina <slide>... [--sacn <n>]
 
 and it takes the same options as `manim-slides present`. What it changes:
 

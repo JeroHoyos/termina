@@ -1,5 +1,5 @@
 //! Local server on 127.0.0.1: the MCP server Claude connects to (`/mcp`) and the videos and
-//! thumbnails the panel shows (`/file/<talk>/<path inside diapos/>`).
+//! thumbnails the panel shows (`/file/<talk>/<path inside .termina/>`).
 //!
 //! Only this computer can reach it, but a web page open in the browser could still try: requests
 //! must name this server as their host (which stops DNS rebinding), and `/mcp` also needs the
@@ -73,7 +73,7 @@ async fn not_allowed() -> StatusCode {
     StatusCode::METHOD_NOT_ALLOWED
 }
 
-/// Serves a file from `presentacion/diapos/` (with ranges, so videos can be scrubbed).
+/// Serves a file from the `.termina/` folder of a talk (with ranges, so videos can be scrubbed).
 async fn file(
     State(s): State<Arc<Shared>>,
     UrlPath((talk, path)): UrlPath<(String, String)>,
@@ -82,7 +82,7 @@ async fn file(
     let Some(pres) = s.engine.presentation(&talk) else {
         return StatusCode::NOT_FOUND.into_response();
     };
-    let base = pres.join("diapos");
+    let base = pres.join(studio_engine::RENDERS);
     let (Ok(base), Ok(p)) = (base.canonicalize(), base.join(&path).canonicalize()) else {
         return StatusCode::NOT_FOUND.into_response();
     };

@@ -27,9 +27,9 @@ TALK = re.compile(r"[A-Za-z0-9_][A-Za-z0-9_-]{0,79}")
 INSTRUCTIONS = (
     "Tools of Termina. Each slide of a manim talk is rendered on its own: rendering one "
     "never touches the others. Flow to create or change one: edit its .py with your own tools, "
-    "register it in diapositivas/__init__.py if it is new, place it in main.py with “place”, "
+    "register it in slides/__init__.py if it is new, place it in main.py with “place”, "
     "render it with “render” and check it with “view”. A talk can live in any folder: “talks” "
-    "gives the folder of each one. Before editing, read its talk.manimrs (title, what it is "
+    "gives the folder of each one. Before editing, read its termina.json (title, what it is "
     "about, language, resolution) and its AGENTS.md or README. If the Termina app is "
     "open, the user sees there every slide you render."
 )
@@ -62,7 +62,7 @@ TOOLS = [
     _tool("view", "Images of the end of each pause of an already rendered slide, to check it.",
           {"talk": _TALK, "slide": _SLIDE}, ["talk", "slide"], True),
     _tool("place", "Adds self.<method>() to construct() in main.py, after the given slide (or at "
-          "the end). The method must already be registered in diapositivas/__init__.py.",
+          "the end). The method must already be registered in slides/__init__.py.",
           {"talk": _TALK, "method": {"type": "string", "description": "Like slide_git_stash."},
            "after": _SLIDE}, ["talk", "method"]),
     _tool("export", "Builds the HTML package (.zip), a PDF, or one MP4 (with the music of a video) "

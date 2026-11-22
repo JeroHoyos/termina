@@ -18,10 +18,10 @@ use crate::Shared;
 
 const INSTRUCTIONS: &str = "Tools of the “Termina” app. Each slide of a manim talk is \
 rendered on its own: rendering one never touches the others. Flow to create or change one: edit \
-its .py with your own tools, register it in diapositivas/__init__.py if it is new, place it in \
+its .py with your own tools, register it in slides/__init__.py if it is new, place it in \
 main.py with “place”, render it with “render”, check it with “view” and finish with “show” so the \
 user sees it. A talk can live in any folder: “talks” gives the folder of each one. Before editing, \
-read its talk.manimrs (what the talk is: title, what it is about, language, resolution) and its \
+read its termina.json (what the talk is: title, what it is about, language, resolution) and its \
 AGENTS.md or README.";
 
 /// Only the Claude session this app started knows the secret. Browsers always say where a request
@@ -102,7 +102,7 @@ fn tools() -> Value {
     let slide = json!({ "type": "string", "description": "Name of the slide as “slides” lists it (sobre_mi, practica-2…) or its number." });
     let read_only = json!({ "readOnlyHint": true });
     json!([
-        { "name": "talks", "description": "Lists the talks: name, title and folder of each one. The folder has the talk's main.py and its talk.manimrs, with what the talk is (title, what it is about, language, resolution).",
+        { "name": "talks", "description": "Lists the talks: name, title and folder of each one. The folder has the talk's main.py and its termina.json, with what the talk is (title, what it is about, language, resolution).",
           "inputSchema": { "type": "object", "properties": {} }, "annotations": read_only },
         { "name": "slides", "description": "The slides of a talk in the order of main.py: number, name, render status, the user's review and its .py file.",
           "inputSchema": { "type": "object", "properties": { "talk": talk }, "required": ["talk"] }, "annotations": read_only },
@@ -112,13 +112,13 @@ fn tools() -> Value {
           "inputSchema": { "type": "object", "properties": {
               "talk": talk,
               "slides": { "type": "array", "items": { "type": "string" }, "description": "Names or numbers of the slides." },
-              "quality": { "type": "string", "enum": ["480p", "720p", "1080p"], "description": "The talk's resolution by default (its talk.manimrs); 480p to test quickly." }
+              "quality": { "type": "string", "enum": ["480p", "720p", "1080p"], "description": "The talk's resolution by default (its termina.json); 480p to test quickly." }
           }, "required": ["talk", "slides"] } },
         { "name": "view", "description": "Images of the end of each pause of an already rendered slide, to check how it came out.",
           "inputSchema": { "type": "object", "properties": { "talk": talk, "slide": slide }, "required": ["talk", "slide"] }, "annotations": read_only },
         { "name": "show", "description": "Opens that slide in the app's panel so the user sees it.",
           "inputSchema": { "type": "object", "properties": { "talk": talk, "slide": slide }, "required": ["talk", "slide"] } },
-        { "name": "place", "description": "Adds self.<method>() to construct() in main.py, after the given slide (or at the end). The method must already be registered in diapositivas/__init__.py.",
+        { "name": "place", "description": "Adds self.<method>() to construct() in main.py, after the given slide (or at the end). The method must already be registered in slides/__init__.py.",
           "inputSchema": { "type": "object", "properties": {
               "talk": talk,
               "method": { "type": "string", "description": "The slide's method, like slide_git_stash." },
@@ -262,7 +262,7 @@ fn view(s: &Shared, talk: &str, slide: &str) -> Result<Vec<Value>, String> {
     let stills = s
         .engine
         .presentation(talk)
-        .and_then(|p| p.join("diapos").join("_stills").canonicalize().ok())
+        .and_then(|p| p.join(studio_engine::RENDERS).join("_stills").canonicalize().ok())
         .ok_or("This talk has no stills folder.")?;
     let n = paths.len();
     let mut content = vec![text(format!("{slide}: {n} pause(s); each image is the end of a pause."))];

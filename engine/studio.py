@@ -5,7 +5,7 @@ Run it with the `studio.cmd` launcher in `termina/` (or, from the talks folder, 
 
     studio                                  opens the panel in the browser
     studio talks                            lists the talks, with the folder of each one
-    studio open <folder>                    adds a talk from any folder (its own, or its presentacion/)
+    studio open <folder>                    adds a talk from any folder (its own, or its presentation/)
     studio new-talk "Title" [--about "…"] [--language es|en]
                     [--in <folder>] [--folder <name>] [--video | --reel]
                                             creates a talk with a title slide and a closing slide,
@@ -13,7 +13,7 @@ Run it with the `studio.cmd` launcher in `termina/` (or, from the talks folder, 
                                             --video: one MP4 at 16:9, scenes without pauses;
                                             --reel: the same, vertical at 9:16 for the phone
     studio <talk> info [--title "…"] [--about "…"] [--resolution 720p] …
-                                            its talk.manimrs: what the talk is (or changes it)
+                                            its termina.json: what the talk is (or changes it)
                                             (--kind video|reel, --music <file> under the MP4,
                                             --engine auto|manim-ce: ManimGX first, or only Manim CE)
     studio <talk> chiptune                  new 8-bit music for a video, under its MP4
@@ -48,14 +48,14 @@ Run it with the `studio.cmd` launcher in `termina/` (or, from the talks folder, 
 
 Render option: --quality 480p|720p|1080p (the talk's resolution by default).
 
-A talk is the folder with its main.py, wherever it is: `presentacion/` in the older talks, the
-talk's own folder in the ones made by the Studio. The Studio remembers which ones it knows in
-`termina/talks.json`, and each talk keeps what it is (title, what it is about, language,
-resolution) in its `talk.manimrs`, next to its main.py.
+A talk is the folder with its main.py, wherever it is. The Studio remembers which ones it knows
+in `termina/talks.json`, and each talk keeps what it is (title, what it is about, language,
+resolution) in its `termina.json`, next to its main.py. The code of the slides is in `slides/`.
+A folder that holds more than the talk keeps the talk in `presentation/`.
 
 <talk> is the name `talks` gives it (charla-claude), or that name without the prefix (claude).
-Everything it produces lives in `diapos/` of each talk: one .json per slide plus its videos, so
-rendering one slide never deletes or redoes the others.
+Everything it renders lives in `.termina/` of each talk: one .json per slide plus its videos, so
+rendering one slide never deletes or redoes the others. The exports go to `export/`.
 """
 
 import sys
@@ -102,7 +102,8 @@ REGISTRY = HERE.parent / "talks.json"
 REGISTRY_LOCK = HERE.parent / ".talks.lock"
 EXAMPLES = HERE.parent / "examples"  # the list shows the talks in it with "(example)"
 # Each talk's own file with what it is. JSON, so the app, the panel and Claude read it alike.
-PROJECT_FILE = "talk.manimrs"
+PROJECT_FILE = "termina.json"
+OLD_PROJECT_FILE = "talk.manimrs"
 SPEAKER_FILE = "speaker-notes.json"
 PROJECT_FIELDS = {"title": "", "about": "", "author": "", "language": "es", "resolution": "1080p",
                   "numbers": "off", "kind": "slides", "music": "", "engine": "auto"}
@@ -111,12 +112,14 @@ ENGINES = ("auto", "manim-ce")
 # What a project makes: a talk of slides to present, one video, or one vertical video (a reel).
 KINDS = ("slides", "video", "reel")
 LANGUAGE = re.compile(r"[a-z]{2,3}(-[A-Za-z]{2,4})?")
-# Folder names of the talks' own format: every talk keeps its code in presentacion/ and its slide
-# modules in presentacion/diapositivas/. The renders folder keeps the name "diapos" because the
-# manim-slides files inside it store their video paths with that name.
-PRESENTATION = "presentacion"
-SLIDES_PACKAGE = "diapositivas"
-RENDERS = "diapos"
+# The folders of a talk: the code of the slides, what the Studio renders (it can be deleted, the
+# cost is a new render) and the exports (the user's).
+SLIDES_PACKAGE = "slides"
+RENDERS = ".termina"
+EXPORTS = "export"
+# A folder that holds more than the talk (practice notebooks, tools) keeps the talk in
+# presentation/, with the README one level up. presentacion/ is its name in the older talks.
+PRESENTATION = ("presentation", "presentacion")
 TALK_PREFIX = "charla-"
 PORT = 8765
 QUALITIES = {"480p": "l", "720p": "m", "1080p": "h"}
@@ -131,7 +134,7 @@ LABELS = {
     "out": "commented out",
 }
 PENDING = {"new", "changed", "transition", "resolution", "number"}
-NOT_SHARED = {".venv", "media", "slides", RENDERS, "__pycache__", ".ruff_cache",
+NOT_SHARED = {".venv", "media", RENDERS, EXPORTS, "__pycache__", ".ruff_cache",
               ".complexipy_cache", ".git"}
 
 
@@ -144,12 +147,12 @@ class Talk:
         self.pres = pres
         self.id = id
         self.renders = pres / RENDERS
-        # In the older talks the code is in presentacion/ and the README one level up.
-        self.root = pres.parent if pres.name.lower() == PRESENTATION else pres
+        self.exports = pres / EXPORTS
+        self.root = pres.parent if pres.name.lower() in PRESENTATION else pres
 
     @property
     def project(self) -> dict:
-        """What its talk.manimrs says (empty if it has none yet)."""
+        """What its termina.json says (empty if it has none yet)."""
         data = read_json(self.pres / PROJECT_FILE, {})
         return data if isinstance(data, dict) else {}
 
@@ -243,7 +246,7 @@ def _entries() -> list[dict]:
 def _seed():
     """The first time, the Studio knows the talks next to its folder, as it always did."""
     found, ids = [], []
-    for main in sorted(ROOT.glob(f"*/{PRESENTATION}/main.py")):
+    for main in sorted(m for sub in PRESENTATION for m in ROOT.glob(f"*/{sub}/main.py")):
         name, n = _slug(main.parent.parent.name), 2
         while name in ids:
             name, n = f"{_slug(main.parent.parent.name)}-{n}", n + 1
@@ -273,20 +276,20 @@ def find_talk(text: str) -> Talk:
 
 
 def talk_folder_of(p: Path) -> Path:
-    """The folder with the main.py of what the user picked: that folder, its presentacion/, or the
-    folder of a talk.manimrs."""
+    """The folder with the main.py of what the user picked: that folder, its presentation/, or the
+    folder of a termina.json."""
     p = p.expanduser()
     if not p.is_absolute():
         raise RuntimeError("Give the whole path of the folder")
-    if p.is_file() and p.suffix == Path(PROJECT_FILE).suffix:
+    if p.is_file() and p.name in (PROJECT_FILE, OLD_PROJECT_FILE):
         p = p.parent
     if not p.is_dir():
         raise RuntimeError("That folder does not exist")
-    for folder in (p, p / PRESENTATION):
+    for folder in (p, *(p / sub for sub in PRESENTATION)):
         if (folder / "main.py").is_file():
             return folder.resolve()
     raise RuntimeError("There is no talk in that folder, choose the folder of a talk or its "
-                       "presentacion folder")
+                       "presentation folder")
 
 
 def _free_id(base: str, items: list[dict]) -> str:
@@ -303,7 +306,7 @@ def register(pres: Path) -> Talk:
     """Adds the talk in `pres` to the Studio's list, or finds it if it is already there."""
     _entries()  # makes the list the first time
     pres = pres.resolve()
-    named = pres.parent.name if pres.name.lower() in (PRESENTATION, "presentation") else pres.name
+    named = pres.parent.name if pres.name.lower() in PRESENTATION else pres.name
     chosen = {}
 
     def change(data):
@@ -336,10 +339,10 @@ def forget(talk: Talk) -> str:
     return f"{talk.title} left the list, its folder stays as it was"
 
 
-# ───────────────────────────── talk.manimrs ─────────────────────────────
+# ───────────────────────────── termina.json ─────────────────────────────
 
 def project_info(talk: Talk) -> dict:
-    """The fields of talk.manimrs, with their defaults when the file doesn't say."""
+    """The fields of termina.json, with their defaults when the file doesn't say."""
     data = talk.project
     info = {k: data[k].strip() if isinstance(data.get(k), str) else d for k, d in PROJECT_FIELDS.items()}
     info["title"], info["resolution"] = talk.title, talk.resolution
@@ -351,14 +354,14 @@ def _project_change(base: dict, changes: dict):
         fields = {k: data[k] if isinstance(data.get(k), str) else base[k] for k in PROJECT_FIELDS}
         fields.update(changes)
         # Anything else the user wrote in the file stays, after the known fields.
-        extra = {k: v for k, v in data.items() if k not in PROJECT_FIELDS and k != "manimrs"}
+        extra = {k: v for k, v in data.items() if k not in PROJECT_FIELDS and k not in ("termina", "manimrs")}
         data.clear()
-        data.update({"manimrs": 1, **fields, **extra})
+        data.update({"termina": 1, **fields, **extra})
     return change
 
 
 def ensure_project(talk: Talk):
-    """Gives a talk its talk.manimrs the first time, from its README and its renders."""
+    """Gives a talk its termina.json the first time, from its README and its renders."""
     p = talk.pres / PROJECT_FILE
     if p.exists():
         return
@@ -436,7 +439,10 @@ _LEGACY_FILES = [
         "note": v.get("nota", ""), "hash": v.get("hash"), "date": v.get("fecha")}),
     ("_calidades.json", "_resolutions.json", lambda v: _LEGACY_QUALITY.get(v, v)),
 ]
-_LEGACY_FOLDERS = (("_miniaturas", "_thumbnails"), ("_fotos", "_stills"), ("exportado", "exported"))
+_LEGACY_FOLDERS = (("_miniaturas", "_thumbnails"), ("_fotos", "_stills"))
+# The names of the folders before Termina used English names.
+_OLD_RENDERS, _OLD_PACKAGE, _OLD_EXPORTS = "diapos", "diapositivas", ("exportado", "exported")
+_OLD_IMPORT = re.compile(rb"^(\s*(?:from|import)\s+)diapositivas\b", re.M)
 
 
 def _convert_legacy(source: Path, target: Path, convert):
@@ -448,17 +454,100 @@ def _convert_legacy(source: Path, target: Path, convert):
     source.unlink(missing_ok=True)
 
 
+def _rename(source: Path, target: Path) -> bool:
+    """Moves a file or a folder to its new name, if the new name is free."""
+    if not source.exists() or target.exists():
+        return False
+    try:
+        source.rename(target)
+    except OSError:
+        return False
+    return True
+
+
 def migrate(talk: Talk):
+    if _rename(talk.pres / _OLD_RENDERS, talk.renders):
+        _point_videos_to_renders(talk)
+    if _rename(talk.pres / OLD_PROJECT_FILE, talk.pres / PROJECT_FILE):
+        save_project(talk, {})  # its first key, "manimrs", becomes "termina"
     r = talk.renders
-    if not r.is_dir():
+    if r.is_dir():
+        for old, new, convert in _LEGACY_FILES:
+            _convert_legacy(r / old, r / new, convert)
+        for old, new in _LEGACY_FOLDERS:
+            _rename(r / old, r / new)
+        for old in _OLD_EXPORTS:
+            _rename(r / old, talk.exports)
+    _migrate_package(talk)
+    for p in dict.fromkeys((talk.pres / ".gitignore", talk.root / ".gitignore")):
+        _migrate_gitignore(p)
+
+
+def _migrate_gitignore(p: Path):
+    """slides/ was the output of manim-slides and is now the code: git must not ignore it."""
+    text = p.read_bytes() if p.is_file() else b""
+    new = re.sub(rb"^slides/\r?\n", b"", text, flags=re.M)
+    new = re.sub(rb"^diapos/(\r?)$", rb".termina/\1\nexport/\1", new, flags=re.M)
+    if new != text:
+        p.write_bytes(new)
+
+
+def _point_videos_to_renders(talk: Talk):
+    """The .json of each slide keeps the paths of its videos, from the folder of main.py."""
+    for p in talk.renders.glob("*.json"):
+        data = read_json(p, None)
+        videos = data.get("slides") if isinstance(data, dict) else None
+        if isinstance(videos, list):
+            for video in videos:
+                _replace_start(video, ("file", "rev_file"), _OLD_RENDERS, RENDERS)
+            write_json(p, data)
+
+
+def _replace_start(entry, keys: tuple, old: str, new: str):
+    """The paths of `entry` that start with the folder `old` start with `new`."""
+    for key in keys if isinstance(entry, dict) else ():
+        v = entry.get(key)
+        if isinstance(v, str) and v[:len(old) + 1] in (f"{old}\\", f"{old}/"):
+            entry[key] = new + v[len(old):]
+
+
+def _migrate_package(talk: Talk):
+    """diapositivas/ becomes slides/, and its imports too. The fingerprints of the code change, so
+    the renders and the reviews get the new ones: no slide needs a new render."""
+    old, new = talk.pres / _OLD_PACKAGE, talk.pres / SLIDES_PACKAGE
+    if not old.is_dir() or (new.exists() and not _drop_old_output(new)):
         return
-    for old, new, convert in _LEGACY_FILES:
-        _convert_legacy(r / old, r / new, convert)
-    for old, new in _LEGACY_FOLDERS:
-        source, target = r / old, r / new
-        if source.is_dir() and not target.exists():
-            with suppress(OSError):
-                source.rename(target)
+    if not _rename(old, new):
+        return
+    shared_before = shared_fingerprint(talk, read_plan(talk), _OLD_PACKAGE)
+    changed = {}
+    for p in _python_files(talk.pres):
+        code = p.read_bytes()
+        if _OLD_IMPORT.search(code):
+            before = _fingerprint(p)
+            p.write_bytes(_OLD_IMPORT.sub(rb"\g<1>" + SLIDES_PACKAGE.encode(), code))
+            changed[before] = _fingerprint(p)
+    changed[shared_before] = shared_fingerprint(talk, read_plan(talk))
+    _carry_fingerprints(talk, changed)
+
+
+def _drop_old_output(folder: Path) -> bool:
+    """The slides/ folder that manim-slides made before the Studio: only videos and .json, no code."""
+    return not any(folder.rglob("*.py")) and to_recycle_bin(folder)
+
+
+def _carry_fingerprints(talk: Talk, changed: dict):
+    """Each old fingerprint in the renders and the reviews becomes its new one."""
+    for name in ("_renders.json", "_reviews.json"):
+        if talk.path(name).exists():
+            update_json(talk.path(name), lambda data: [_carry(e, changed) for e in data.values()])
+
+
+def _carry(entry, changed: dict):
+    _replace_start(entry, ("file",), _OLD_PACKAGE, SLIDES_PACKAGE)
+    for key in ("hash", "previous_hash", "shared_hash") if isinstance(entry, dict) else ():
+        if entry.get(key) in changed:
+            entry[key] = changed[entry[key]]
 
 
 @dataclass
@@ -466,9 +555,9 @@ class Slide:
     pos: int | None       # the number the user sees (1, 2, …); None when it is commented out
     index: int | None     # position among the active calls in construct (0, 1, …)
     method: str
-    name: str             # the name of its .json in diapos/
+    name: str             # the name of its .json in .termina/
     group: str
-    file: str             # its .py, relative to presentacion/
+    file: str             # its .py, relative to the folder of main.py
     active: bool
     hash: str = ""
     previous: str = ""
@@ -515,7 +604,7 @@ def _alias_of(st: ast.Assign) -> str | None:
 
 
 def file_map(pres: Path) -> dict[str, Path]:
-    """slide_x -> the .py that holds its content, read from diapositivas/__init__.py."""
+    """slide_x -> the .py that holds its content, read from slides/__init__.py."""
     init = pres / SLIDES_PACKAGE / "__init__.py"
     if not init.exists():
         return {}
@@ -588,14 +677,15 @@ def _python_files(pres: Path):
         yield from (Path(folder) / name for name in sorted(files) if name.endswith(".py"))
 
 
-def shared_fingerprint(talk: Talk, plan: list[Slide]) -> str:
-    """Fingerprint of all the shared code: what is neither main.py nor the file of a slide."""
+def shared_fingerprint(talk: Talk, plan: list[Slide], package: str = SLIDES_PACKAGE) -> str:
+    """Fingerprint of all the shared code: what is neither main.py nor the file of a slide. With
+    `package`, the fingerprint the code had when slides/ had that name."""
     own = {s.file for s in plan} | {"main.py", f"{SLIDES_PACKAGE}/__init__.py"}
     h = hashlib.sha1()
     for p in _python_files(talk.pres):
         rel = p.relative_to(talk.pres).as_posix()
         if rel not in own:
-            h.update(rel.encode())
+            h.update(re.sub(rf"^{SLIDES_PACKAGE}/", f"{package}/", rel).encode())
             h.update(p.read_bytes())
     return h.hexdigest()[:12]
 
@@ -1045,7 +1135,7 @@ def export(talk: Talk, fmt="html", log=print, only: str | None = None) -> Path:
     have, missing = rendered(talk)
     if not have:
         raise RuntimeError("No slides are rendered yet")
-    target = talk.path("exported")
+    target = talk.exports
     target.mkdir(parents=True, exist_ok=True)
     if only:
         return _export_slide(talk, only, have, fmt, target, log)
@@ -1125,7 +1215,7 @@ def _export_video(talk: Talk, names: list[str], fmt: str, file: Path, log) -> Pa
     if not ff:
         raise RuntimeError("The video needs ffmpeg, install it and try again")
     music = project_info(talk)["music"] if fmt == "mp4" else ""
-    # talk.manimrs can come with an imported talk: its music must stay in the folder.
+    # termina.json can come with an imported talk: its music must stay in the folder.
     song = (talk.pres / music).resolve()
     if music and not (song.is_relative_to(talk.pres.resolve()) and song.is_file()):
         raise RuntimeError(f"There is no music file “{Path(music).name}” in the folder")
@@ -1419,7 +1509,7 @@ def _export_pptx(talk: Talk, base: list[str], file: Path, log) -> Path:
 
 
 # What a package leaves out of the renders: other exports, the images for Claude and the locks.
-_NOT_PACKAGED = {"exported", "_stills", "_data.lock", "_render.lock"}
+_NOT_PACKAGED = {"_stills", "_data.lock", "_render.lock"}
 
 
 def _package_files(talk: Talk):
@@ -1435,7 +1525,7 @@ def _export_package(talk: Talk, log) -> Path:
     """The talk in one .zip, with its videos: the other person unzips it, opens the folder with
     the Studio and has every slide up to date."""
     import zipfile
-    file = talk.path("exported") / f"{talk.id}-talk.zip"
+    file = talk.exports / f"{talk.id}-talk.zip"
     file.parent.mkdir(parents=True, exist_ok=True)
     log("Compressing…")
     with zipfile.ZipFile(file, "w", zipfile.ZIP_STORED) as z:
@@ -1598,7 +1688,7 @@ def _template(talk: Talk, name: str, init_text: str, function: str) -> str:
 
 
 def _slide_folder(talk: Talk, ref: Slide) -> Path:
-    """The folder of the reference slide, if it is inside diapositivas/."""
+    """The folder of the reference slide, if it is inside slides/."""
     package = talk.pres / SLIDES_PACKAGE
     folder = (talk.pres / ref.file).parent
     return folder if folder == package or package in folder.parents else package
@@ -2043,7 +2133,7 @@ def set_theme(talk: Talk, name: str) -> str:
 
 
 # ───────────────────────────── editing on the slide ─────────────────────────────
-# A render leaves in diapos/_objects/<name>.json what each pause shows: every object, its box and
+# A render leaves in .termina/_objects/<name>.json what each pause shows: every object, its box and
 # the line of code that made it. A change on the slide is a small change to that code.
 
 _SHOWS = ("play", "add", "wait", "next_slide")
@@ -2665,13 +2755,13 @@ def import_talk(file: Path, where: Path | None = None, folder: str | None = None
 
 # ───────────────────────────── new talk ─────────────────────────────
 # The minimum for the studio to treat it like the others: main.py with construct(), the slides
-# registered in diapositivas/__init__.py with _slide, a style and a template.
+# registered in slides/__init__.py with _slide, a style and a template.
 
 _NEW_GITIGNORE = """\
 # Output generated by Manim / manim-slides
 media/
-slides/
-diapos/
+.termina/
+export/
 
 # Exports of the presentation
 *.pptx
@@ -2704,7 +2794,7 @@ _NEW_MAIN = """\
 from manim import ManimColor
 from manim_slides import Slide
 
-from diapositivas import SlideBase, TalkSlides
+from slides import SlideBase, TalkSlides
 from style import BACKGROUND
 
 
@@ -3035,7 +3125,7 @@ def _new_talk_files(name: str, title: str, about: str, language: str, kind: str 
     made, what = (("Animated video with Manim", "video") if kind != "slides"
                   else ("Animated presentation with Manim Slides", "talk"))
     common = {
-        PROJECT_FILE: json.dumps({"manimrs": 1, **project}, ensure_ascii=False, indent=2) + "\n",
+        PROJECT_FILE: json.dumps({"termina": 1, **project}, ensure_ascii=False, indent=2) + "\n",
         "README.md": "\n".join(readme + [
             f"{made}, made with Termina. What the {what} is",
             f"(title, what it is about, language and resolution) is in `{PROJECT_FILE}`.", ""]),
@@ -3317,7 +3407,7 @@ def _panel_export(talk: Talk, plan: list[Slide], d: dict):
 def _panel_open(talk: Talk, plan: list[Slide], d: dict):
     if d.get("what") != "exported":
         return _open_in_editor(talk.pres / resolve(talk, plan, [d["name"]])[0].file)
-    folder = talk.path("exported")
+    folder = talk.exports
     folder.mkdir(parents=True, exist_ok=True)
     _open(folder)
 
@@ -3519,7 +3609,7 @@ def _print_talk(talk: Talk, as_json: bool, text: str):
 
 
 def _cmd_info(talk: Talk, args: list[str]):
-    """Shows talk.manimrs, or changes the fields given (`--title "…"`, `--resolution 720p`…)."""
+    """Shows termina.json, or changes the fields given (`--title "…"`, `--resolution 720p`…)."""
     p = argparse.ArgumentParser(prog=f"studio {talk.id} info")
     for field in PROJECT_FIELDS:
         p.add_argument(f"--{field}")

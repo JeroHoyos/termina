@@ -196,7 +196,7 @@ const languageOptions = chosen => (LANGUAGES.some(([c]) => c === chosen) ? LANGU
 const leaveForm = () => { mode = 'view'; newTalkDraft = null; if (talk) paintViewer(true); else paintNoTalks(); };
 
 // A new talk goes in a folder of its own, wherever the user wants: everything of the talk lives
-// there (its slides, their code, its videos and its talk.manimrs).
+// there (its slides, their code, its videos and its termina.json).
 function paintNewTalk() {
   releaseVideos();
   const draft = newTalkDraft || {};
@@ -264,7 +264,7 @@ function paintNewTalk() {
       await enterTalk(r);
       const video = kind.value !== 'slides', what = {slides: 'talk', video: 'video', reel: 'reel'}[kind.value];
       const start = video ? 'a title scene and an end scene' : 'a title slide and a closing slide';
-      if (topic) sendToClaude(`/slides ${r.id}: it is a new ${what}, “${t}”, already created with ${start}. What it is about is in its talk.manimrs: ${topic}. Propose the list of ${video ? 'scenes' : 'slides'} first and wait for my approval before creating them`);
+      if (topic) sendToClaude(`/slides ${r.id}: it is a new ${what}, “${t}”, already created with ${start}. What it is about is in its termina.json: ${topic}. Propose the list of ${video ? 'scenes' : 'slides'} first and wait for my approval before creating them`);
       else toast(video ? 'Video made, render its pending scenes to see it' : 'Talk created, render its pending slides to see it');
     } catch (err) {
       $('#t-create').disabled = false;
@@ -275,7 +275,7 @@ function paintNewTalk() {
 
 const THEMES = [['dark', 'Dark'], ['light', 'Light'], ['night', 'Night'], ['paper', 'Paper']];
 
-// What the talk is, from its talk.manimrs: Claude reads the same file.
+// What the talk is, from its termina.json: Claude reads the same file.
 function paintDetails() {
   releaseVideos();
   const p = data?.project;

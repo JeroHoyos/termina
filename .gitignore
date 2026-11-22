@@ -21,7 +21,7 @@ frontend/.tools/
 frontend/apps/studio/dist/
 
 # Renders of the example talks
-examples/*/diapos/
+examples/*/.termina/
+examples/*/export/
 examples/*/media/
-examples/*/slides/
 examples/*/.venv/

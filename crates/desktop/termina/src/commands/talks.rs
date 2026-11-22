@@ -1,4 +1,4 @@
-//! The talks: the list, a new talk, a talk from another folder and the fields of `talk.manimrs`.
+//! The talks: the list, a new talk, a talk from another folder and the fields of `termina.json`.
 
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -59,7 +59,7 @@ pub async fn new_talk(
     .await
 }
 
-/// Adds the talk in a folder (its own folder, its presentacion/ or its talk.manimrs) to the list;
+/// Adds the talk in a folder (its own folder, its presentation/ or its termina.json) to the list;
 /// returns `{id, title, path}`.
 #[tauri::command]
 pub async fn open_talk(s: St<'_>, path: String) -> Result<Value, String> {
@@ -87,7 +87,7 @@ pub async fn import_talk(s: St<'_>, window: tauri::WebviewWindow, place: String)
     .await
 }
 
-/// Changes what talk.manimrs says (title, what it is about, resolution…); returns all its fields.
+/// Changes what termina.json says (title, what it is about, resolution…); returns all its fields.
 #[tauri::command]
 pub async fn save_talk(s: St<'_>, talk: String, fields: HashMap<String, String>) -> Result<Value, String> {
     const FIELDS: [&str; 9] = ["title", "about", "author", "language", "resolution", "numbers", "kind", "music", "engine"];

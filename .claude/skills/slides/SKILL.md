@@ -6,7 +6,7 @@ description: Creates, changes and reviews the slides of the manim talks (charla-
 # Slides, one at a time
 
 With the Studio (`termina/engine/studio.py`, in the talks folder) each slide is rendered into
-its own file, `diapos/<name>.json` inside the talk. Rendering one never touches the others. The user
+its own file, `.termina/<name>.json` inside the talk. Rendering one never touches the others. The user
 reviews them in the panel (the Termina app, or http://127.0.0.1:8765) and leaves notes there
 with the changes they want.
 
@@ -14,10 +14,11 @@ with the changes they want.
 
 A talk can live in any folder. `talks` (the MCP tool, or the command) gives the name, title and
 folder of each one, and `list` repeats the folder at the top. The folder is the one with the talk's
-`main.py`: `presentacion/` in the older talks (`charla-git/presentacion`), the talk's own folder in
-the ones made from the app. The slide files `list` gives are relative to it.
+`main.py`: the talk's own folder, or its `presentation/` when the folder holds more than the talk
+(`charla-claude/presentation`). The slide files `list` gives are relative to it. The code of the
+slides is in `slides/`.
 
-Next to `main.py` is `talk.manimrs`, a JSON file with what the talk is: `title`, `about`
+Next to `main.py` is `termina.json`, a JSON file with what the talk is: `title`, `about`
 (who it is for and what it covers), `author`, `language` of the slides and `resolution`
 (the talk's, used when a render doesn't say). Read it before making slides, and write the slides in
 its language. Change it with `info --about "…"` (or by editing it) only if the user asks.
@@ -51,7 +52,7 @@ uv run --no-project termina/engine/studio.py <talk> delete <slide>     # its fil
 uv run --no-project termina/engine/studio.py <talk> resolution <slide> 1080p         # or default
 uv run --no-project termina/engine/studio.py <talk> note <slide> --clear
 uv run --no-project termina/engine/studio.py talks                     # name, title and folder of each talk
-uv run --no-project termina/engine/studio.py <talk> info              # its talk.manimrs
+uv run --no-project termina/engine/studio.py <talk> info              # its termina.json
 uv run --no-project termina/engine/studio.py open "C:/path/to/talk"   # adds a talk from any folder
 uv run --no-project termina/engine/studio.py new-talk "Title" --about "…" [--in "C:/folder"] [--folder name] [--video | --reel]
 ```
@@ -61,16 +62,16 @@ other that `talks` lists. A slide repeated in `main.py` (the practice one) is ca
 `practica-2`, …
 
 A new talk (`studio new-talk "Title"`, or *+ New talk* in the app) keeps everything in its one
-folder and has no AGENTS.md: what it is about is in its `talk.manimrs`, its style in `style.py`
+folder and has no AGENTS.md: what it is about is in its `termina.json`, its style in `style.py`
 (colors, `FONT`, sizes), and each slide is a `build(scene)` that ends with `scene.next_slide()`. If
 the request brings a topic, propose the list of slides and wait for the user's approval before
 creating them.
 
 A video (`new-talk "Title" --video`, or *Video 16:9* in the app) has `"kind": "video"` in its
-`talk.manimrs` and the same files. Its slides are scenes: the `_slide` wrapper ends each scene with
+`termina.json` and the same files. Its slides are scenes: the `_slide` wrapper ends each scene with
 a cut, so a scene's `build(scene)` never calls `scene.next_slide()`, and the presenter does not
 open. A scene plays straight into the next one: give it enough `scene.wait()` to be read. The
-result is `export --mp4` (with the `music` of its `talk.manimrs`) or `export --narrated` (a voice
+result is `export --mp4` (with the `music` of its `termina.json`) or `export --narrated` (a voice
 says the speaker notes of each scene). Export only when the user asks. For a mathematical video
 (the style of 3Blue1Brown), the `manim-math` skill gives the form of a scene: one caption at the
 top that tells each beat, one tracker that moves the picture, and the conclusion at the end.
@@ -91,7 +92,7 @@ video or a reel (`music-8bit.wav`) and makes it its music; each call makes a dif
    following the talk's “add a slide” section. If the request says the slide “is already created
    and placed”, don't create it again: only make its content. For formulas, graphs, geometry or
    3D models, follow the `manim-math` skill too.
-4. Render **only** the ones you touched: `render <slide>...`. The default quality is the talk's resolution (its `talk.manimrs`); use
+4. Render **only** the ones you touched: `render <slide>...`. The default quality is the talk's resolution (its `termina.json`); use
    `--quality 480p` if the user asks for speed. If you changed shared code (style, components), say
    which other slides change instead of rendering all of them without asking.
 5. Look at the result with `stills <slide>` and read the PNGs (or `view` in the app). Check that the
@@ -105,8 +106,8 @@ video or a reel (`music-8bit.wav`) and makes it its music; each call makes a dif
 ## Don't
 
 - Don't use `manim_slides render main.py ...` or comment out slides in `main.py` to render a few:
-  that redoes the whole talk in `slides/`.
-- Don't delete a talk's `diapos/` folder: the user's renders are there.
+  that redoes the whole talk and writes its output into `slides/`, the folder of the code.
+- Don't delete a talk's `.termina/` folder: the user's renders are there.
 - Don't run `render --all` or `render --pending` unless asked: they can take a long time.
 - If the render says “waiting for it to finish”, it is another render of the same talk (the panel
   or another session). Wait; don't start another one.

@@ -2,7 +2,7 @@
 
 These are 15 videos of Termina (`"kind": "video"`) in the `3b1b/` folder next to `termina/`. Each
 one is a port to Manim Community of a scene from the code of 3Blue1Brown (the `_20xx/...` path).
-Each one has one scene, `diapositivas/escena.py`, of 100 to 200 lines. They all have the same
+Each one has one scene, `slides/escena.py`, of 100 to 200 lines. They all have the same
 `style.py` (dark background `#0c0c0f`, `ACCENT` `#58c4dd`) and the same `view3d.py` as this skill.
 
 To make a new scene on a near topic, read the port first and copy its structure, not its text.

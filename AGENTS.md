@@ -17,9 +17,10 @@ desktop app for Windows and Linux (Rust and Tauri), an engine in Python and a we
   of the documentation in Spanish or in other languages.
 - Write the documentation in ASD-STE100 Simplified Technical English. The rules are in
   `docs/writing-style.md`.
-- The content of the talks can be in any language. The folder names of the talk format are in
-  Spanish: `presentacion`, `diapositivas`, `diapos`. Do not change them. The renders that are
-  there keep these names in their paths.
+- The content of the talks can be in any language. The names of the talk format are in English:
+  `slides/`, `.termina/`, `export/`, `termina.json`, `presentation/`. The engine changes the old
+  names (`diapositivas`, `diapos`, `talk.manimrs`) when it opens a talk. See "The folder of a talk"
+  in `README.md`.
 
 ## Where each part is
 

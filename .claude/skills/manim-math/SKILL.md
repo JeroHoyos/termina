@@ -11,7 +11,7 @@ review a slide: follow it for the flow. The talks use Manim Community 0.18–0.2
 The rules here come from 15 ports of 3Blue1Brown videos to Manim CE (the `3b1b/` folder next to
 `termina/`, if it is there). `examples.md` in the folder of this skill gives the technique of
 each port. Before you start a topic that is near one of them, read its recipe, and if the folder
-is there, read its `diapositivas/escena.py`: about 100 lines that work.
+is there, read its `slides/escena.py`: about 100 lines that work.
 
 ## The 3Blue1Brown way
 

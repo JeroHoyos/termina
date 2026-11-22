@@ -3,4 +3,4 @@
 Why the weather is hard to predict: the Lorenz system and chaos
 
 Animated presentation with Manim Slides, made with Termina. What the talk is
-(title, what it is about, language and resolution) is in `talk.manimrs`.
+(title, what it is about, language and resolution) is in `termina.json`.

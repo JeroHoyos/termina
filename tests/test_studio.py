@@ -6,6 +6,7 @@ Run them from the repository root with `uv run pytest`.
 
 import json
 import os
+import shutil
 import struct
 import subprocess
 import sys
@@ -53,7 +54,7 @@ def fake_render(talk, *which, quality="1080p"):
         video.parent.mkdir(parents=True, exist_ok=True)
         video.write_bytes(b"video")
         studio.write_json(talk.path(f"{s.name}.json"),
-                          {"slides": [{"file": f"diapos\\files\\{s.name}\\0.mp4"}]})
+                          {"slides": [{"file": f"{studio.RENDERS}\\files\\{s.name}\\0.mp4"}]})
     studio._record(talk, done, studio.shared_fingerprint(talk, plan), quality)
 
 
@@ -72,7 +73,7 @@ def test_new_talk(talk):
     assert names(talk) == ["title", "closing"]
     info = studio.project_info(talk)
     assert (info["title"], info["language"]) == ("Docker from scratch", "en")
-    assert "Thank you" in (talk.pres / "diapositivas" / "closing.py").read_text("utf-8")
+    assert "Thank you" in (talk.pres / "slides" / "closing.py").read_text("utf-8")
     assert [t.id for t in studio.talks()] == [talk.id]
 
 
@@ -92,7 +93,7 @@ def test_new_video_and_reel(talk):
     assert video.id == "video-docker-from-scratch"
     assert names(video) == ["title", "end"]
     assert studio.is_video(video) and not studio.vertical(video)
-    assert "next_slide" in (video.pres / "diapositivas" / "__init__.py").read_text("utf-8")
+    assert "next_slide" in (video.pres / "slides" / "__init__.py").read_text("utf-8")
     assert not (video.pres / ".manim-slides.toml").exists()
     with pytest.raises(RuntimeError, match="no presenter"):
         studio.present(video)
@@ -127,7 +128,7 @@ def test_chiptune(talk):
 
 
 def test_export_keeps_the_music_in_the_folder(talk, tmp_path, monkeypatch):
-    """An imported talk.manimrs is not checked when it is saved: the export checks it."""
+    """An imported termina.json is not checked when it is saved: the export checks it."""
     monkeypatch.setattr(studio.shutil, "which", lambda name: name)
     secret = tmp_path / "secret.wav"
     secret.write_bytes(b"RIFF")
@@ -153,11 +154,11 @@ def test_register_gives_unique_ids(talk, tmp_path):
 
 
 def test_save_project(talk):
-    (talk.pres / "talk.manimrs").write_text(
+    (talk.pres / "termina.json").write_text(
         json.dumps({**studio.project_info(talk), "mine": 1}), "utf-8")
     info = studio.save_project(talk, {"title": "  New   title ", "resolution": "720p"})
     assert (info["title"], info["resolution"]) == ("New title", "720p")
-    assert json.loads((talk.pres / "talk.manimrs").read_text("utf-8"))["mine"] == 1
+    assert json.loads((talk.pres / "termina.json").read_text("utf-8"))["mine"] == 1
     for bad in ({"resolution": "4k"}, {"title": " "}, {"language": "spanish"}, {"colour": "red"}):
         with pytest.raises(RuntimeError):
             studio.save_project(talk, bad)
@@ -217,7 +218,7 @@ def test_status_kinds(talk):
     studio.set_resolution(talk, slide(talk, "closing"), "480p")
     assert statuses(talk)["closing"] == "resolution"
     studio.set_resolution(talk, slide(talk, "closing"), None)
-    title = talk.pres / "diapositivas" / "title.py"
+    title = talk.pres / "slides" / "title.py"
     title.write_text(title.read_text("utf-8") + "\n", "utf-8")
     assert statuses(talk) == {"title": "changed", "closing": "transition"}
     fake_render(talk)
@@ -243,7 +244,7 @@ def test_approval_needs_the_same_code(talk):
     studio.note(talk, s, None, "approved")
     review = lambda: studio.talk_status(talk)["slides"][0]["review"]["status"]  # noqa: E731
     assert review() == "approved"
-    title = talk.pres / "diapositivas" / "title.py"
+    title = talk.pres / "slides" / "title.py"
     title.write_text(title.read_text("utf-8") + "\n", "utf-8")
     assert review() == "to_review"
 
@@ -285,9 +286,9 @@ def test_edit_import():
 
 def test_new_slide(talk):
     s = studio.new_slide(talk, "Git stash, how", slide(talk, "title"))
-    assert (s.name, s.pos, s.file) == ("git_stash_how", 2, "diapositivas/git_stash_how.py")
+    assert (s.name, s.pos, s.file) == ("git_stash_how", 2, "slides/git_stash_how.py")
     assert names(talk) == ["title", "git_stash_how", "closing"]
-    init = (talk.pres / "diapositivas" / "__init__.py").read_text("utf-8")
+    init = (talk.pres / "slides" / "__init__.py").read_text("utf-8")
     assert "from . import closing, git_stash_how, title" in init
     assert "slide_git_stash_how = _slide(git_stash_how.build)" in init
     assert '"Git stash how"' in (talk.pres / s.file).read_text("utf-8")
@@ -306,7 +307,7 @@ def test_new_slide_keeps_windows_line_endings(talk):
 
 def test_duplicate_copies_the_code_and_goes_after_the_slide(talk):
     studio.new_slide(talk, "volumes", slide(talk, "title"))
-    source = talk.pres / "diapositivas" / "volumes.py"
+    source = talk.pres / "slides" / "volumes.py"
     source.write_text(source.read_text("utf-8") + "# mine", "utf-8")
     copy = studio.duplicate(talk, slide(talk, "volumes"))
     assert names(talk) == ["title", "volumes", "volumes_copy", "closing"]
@@ -342,6 +343,40 @@ def test_move(talk):
     assert studio.move(talk, slide(talk, "title"), slide(talk, "title")) == "It is already there"
 
 
+def test_an_old_talk_moves_to_the_new_names_without_a_new_render(talk, monkeypatch):
+    """diapositivas/, diapos/ and talk.manimrs become slides/, .termina/ and termina.json."""
+    pres = talk.pres
+    (pres / "slides" / "common.py").write_text("SIZE = 1\n", "utf-8")
+    closing = pres / "slides" / "closing.py"
+    closing.write_bytes(b"from slides.common import SIZE\r\n" + closing.read_bytes())
+    (pres / "slides").rename(pres / "diapositivas")
+    for f in (pres / "main.py", pres / "diapositivas" / "closing.py"):
+        f.write_bytes(f.read_bytes().replace(b"from slides", b"from diapositivas"))
+    project = (pres / "termina.json").read_text("utf-8").replace('"termina": 1', '"manimrs": 1')
+    (pres / "termina.json").unlink()
+    (pres / "talk.manimrs").write_text(project, "utf-8")
+    (pres / ".gitignore").write_bytes(b"media/\r\nslides/\r\ndiapos/\r\n")
+    monkeypatch.setattr(studio, "SLIDES_PACKAGE", "diapositivas")
+    monkeypatch.setattr(studio, "RENDERS", "diapos")
+    old = studio.Talk(pres, talk.id)
+    fake_render(old)
+    studio.note(old, slide(old, "title"), None, "approved")
+    (pres / "slides" / "files").mkdir(parents=True)  # what manim-slides made before the Studio
+    monkeypatch.setattr(studio, "SLIDES_PACKAGE", "slides")
+    monkeypatch.setattr(studio, "RENDERS", ".termina")
+    monkeypatch.setattr(studio, "to_recycle_bin", lambda p: shutil.rmtree(p) or True)
+
+    studio.migrate(talk)
+
+    assert statuses(talk) == {"title": "up_to_date", "closing": "up_to_date"}
+    assert studio.talk_status(talk)["slides"][0]["review"]["status"] == "approved"
+    assert closing.read_bytes().startswith(b"from slides.common import SIZE\r\n")
+    assert "manimrs" not in (pres / "termina.json").read_text("utf-8")
+    assert not (pres / "diapos").exists()
+    assert (pres / ".gitignore").read_bytes() == b"media/\r\n.termina/\r\nexport/\r\n"
+    assert studio.parts(talk, "title")[0]["video"].exists()
+
+
 def test_rename_keeps_the_renders(talk):
     fake_render(talk)
     title = slide(talk, "title")
@@ -352,7 +387,7 @@ def test_rename_keeps_the_renders(talk):
     assert not talk.path("title.json").exists()
     assert talk.path("files/opening/0.mp4").exists()
     files = studio.read_json(talk.path("opening.json"), {})["slides"][0]["file"]
-    assert files == "diapos\\files\\opening\\0.mp4"
+    assert files == ".termina\\files\\opening\\0.mp4"
     renders = studio.read_json(talk.path("_renders.json"), {})
     assert renders["opening"]["method"] == "slide_opening"
     assert renders["closing"]["previous"] == "opening"
@@ -417,9 +452,9 @@ def test_package_has_the_code_and_the_renders_only(talk):
     studio.export(talk, "package", log=lambda *_: None)  # the old package does not go into the new one
     with zipfile.ZipFile(file) as z:
         inside = {n.split("/", 1)[1] for n in z.namelist()}
-    assert {"main.py", "talk.manimrs", "diapositivas/title.py", "diapos/title.json",
-            "diapos/files/title/0.mp4", "diapos/_renders.json"} <= inside
-    assert not [n for n in inside if n.startswith((".venv", "diapos/exported", "diapos/_stills"))]
+    assert {"main.py", "termina.json", "slides/title.py", ".termina/title.json",
+            ".termina/files/title/0.mp4", ".termina/_renders.json"} <= inside
+    assert not [n for n in inside if n.startswith((".venv", "export/", ".termina/_stills"))]
 
 
 def test_pptx_export_asks_manim_slides_for_the_size_of_the_talk(talk, monkeypatch):
@@ -432,7 +467,7 @@ def test_pptx_export_asks_manim_slides_for_the_size_of_the_talk(talk, monkeypatc
 
 
 def test_source_shows_the_code_and_refuses_code_with_an_error(talk):
-    file = talk.pres / "diapositivas" / "title.py"
+    file = talk.pres / "slides" / "title.py"
     file.write_bytes(file.read_bytes().replace(b"\n", b"\r\n"))
     text = studio.source(talk, slide(talk, "title"))["text"]
     assert "def build(scene):" in text and "\r" not in text
@@ -443,7 +478,7 @@ def test_source_shows_the_code_and_refuses_code_with_an_error(talk):
 
 
 def test_find_and_replace_only_in_the_text_of_the_slides(talk):
-    file = talk.pres / "diapositivas" / "title.py"
+    file = talk.pres / "slides" / "title.py"
     file.write_text('"""Docker is not here."""\nTITLE = "Docker and docker"\ndocker = f"my {TITLE} Docker"\n', "utf-8")
     studio.set_speaker(talk, slide(talk, "closing"), "Say Docker")
     found = studio.find(talk, "docker", case=True)
@@ -491,7 +526,7 @@ def test_import_pptx_makes_a_slide_for_each_page(talk, tmp_path):
     pptx(tmp_path / "deck.pptx", [("Docker día 1", "What it is", "Say hello"), ("Docker día 1", "More", "")])
     made = studio.import_talk(tmp_path / "deck.pptx", tmp_path, "imported")
     assert made.title == "Docker día 1" and names(made) == ["docker_dia_1", "docker_dia_1_2"]
-    code = (made.pres / "diapositivas" / "docker_dia_1.py").read_text("utf-8")
+    code = (made.pres / "slides" / "docker_dia_1.py").read_text("utf-8")
     compile(code, "slide", "exec")
     assert '["What it is", 27, -3.56, 2.0, 7.11]' in code and '["Docker día 1", 27, 0, 3, 12]' in code
     assert '"7"' not in code and '["pptx/page1_1.png", -3.56, 2.0, 7.11]' in code
@@ -536,14 +571,14 @@ def test_theme_changes_the_colors_of_the_style(talk):
 
 def test_move_retext_and_insert_change_the_code_of_the_slide(talk):
     studio.new_slide(talk, "ideas", slide(talk, "title"))
-    file = talk.pres / "diapositivas" / "ideas.py"
+    file = talk.pres / "slides" / "ideas.py"
     lines = file.read_text("utf-8").splitlines()
     made = next(i for i, l in enumerate(lines, 1) if l.strip().startswith("title = Text("))
     loop = next(i for i, l in enumerate(lines, 1) if l.strip().startswith("text = Text(point"))
     fake_render(talk)
-    shown = [{"kind": "text", "text": "ideas", "at": ["diapositivas/ideas.py", made], "parent": None},
+    shown = [{"kind": "text", "text": "ideas", "at": ["slides/ideas.py", made], "parent": None},
              {"kind": "group", "text": "", "at": None, "parent": None},
-             {"kind": "text", "text": "First idea", "at": ["diapositivas/ideas.py", loop], "parent": 1}]
+             {"kind": "text", "text": "First idea", "at": ["slides/ideas.py", loop], "parent": 1}]
     studio.write_json(talk.path("_objects/ideas.json"), {"pauses": [shown]})
     with pytest.raises(RuntimeError, match="inside other code"):
         studio.move_object(talk, slide(talk, "ideas"), 0, 2, 1, 1)
@@ -585,7 +620,7 @@ def test_import_beamer_makes_a_slide_for_each_frame(talk, tmp_path):
 \end{document}""", "utf-8")
     made = studio.import_talk(tmp_path / "deck.tex", tmp_path, "beamer")
     assert made.title == "Redes" and names(made) == ["redes", "que_es"]
-    code = (made.pres / "diapositivas" / "que_es.py").read_text("utf-8")
+    code = (made.pres / "slides" / "que_es.py").read_text("utf-8")
     compile(code, "slide", "exec")
     assert 'TITLE = "Qué es"' in code
     assert ('STEPS = [[["text", "Una red aprende."], ["item", "Capas"]], [["item", "Pesos"], '
@@ -602,18 +637,18 @@ def test_delete_a_repetition_then_the_slide(talk):
     assert talk.path("title.json").exists() and not talk.path("title-2.json").exists()
     assert talk.path("files/title/0.mp4").exists()
     assert "recycle bin" in studio.delete(talk, slide(talk, "title"))
-    init = (talk.pres / "diapositivas" / "__init__.py").read_text("utf-8")
+    init = (talk.pres / "slides" / "__init__.py").read_text("utf-8")
     assert "slide_title" not in init and "from . import closing\n" in init
-    assert not (talk.pres / "diapositivas" / "title.py").exists()
+    assert not (talk.pres / "slides" / "title.py").exists()
     assert "title" not in studio.read_json(talk.path("_renders.json"), {})
 
 
 def test_delete_keeps_a_file_that_another_one_imports(talk):
     studio.new_slide(talk, "helper", None)
-    closing = talk.pres / "diapositivas" / "closing.py"
+    closing = talk.pres / "slides" / "closing.py"
     closing.write_text("from .helper import TITLE\n" + closing.read_text("utf-8"), "utf-8")
     assert studio.delete(talk, slide(talk, "helper")).endswith("was deleted")
-    assert (talk.pres / "diapositivas" / "helper.py").exists()
+    assert (talk.pres / "slides" / "helper.py").exists()
 
 
 def test_render_lock(talk):
@@ -659,7 +694,7 @@ def draws(results, saves=()):
 ])
 def test_manim_ce_renders_only_what_manimgx_could_not(result, saves, expected):
     draw, calls, saved = draws([result, (0, [])], saves)
-    targets = [studio.Slide(i + 1, i, f"slide_{n}", n, "", f"diapositivas/{n}.py", True)
+    targets = [studio.Slide(i + 1, i, f"slide_{n}", n, "", f"slides/{n}.py", True)
                for i, n in enumerate("ab")]
     said = []
     studio._draw(draw, targets, saved, "720p", said.append)
@@ -669,7 +704,7 @@ def test_manim_ce_renders_only_what_manimgx_could_not(result, saves, expected):
 
 def test_only_manim_ce_when_the_talk_says_so():
     draw, calls, saved = draws([(0, [])])
-    targets = [studio.Slide(1, 0, "slide_a", "a", "", "diapositivas/a.py", True)]
+    targets = [studio.Slide(1, 0, "slide_a", "a", "", "slides/a.py", True)]
     studio._draw(draw, targets, saved, "720p", print, gx=False)
     assert calls == [("ce", ["a"])]
 
@@ -761,7 +796,7 @@ def test_command_line_talks(talk, capsys, tmp_path):
     studio.main(["new-talk", "Second", "talk", "--language", "es", "--json"])
     made = json.loads(capsys.readouterr().out)
     assert made["id"] == "charla-second-talk"
-    assert "Gracias" in (Path(made["path"]) / "diapositivas" / "closing.py").read_text("utf-8")
+    assert "Gracias" in (Path(made["path"]) / "slides" / "closing.py").read_text("utf-8")
     studio.main(["open", made["path"], "--json"])
     assert json.loads(capsys.readouterr().out)["id"] == "charla-second-talk"
     studio.main([made["id"], "forget"])
@@ -855,7 +890,7 @@ def test_panel_api(panel, talk):
     renders = [c for c in calls if isinstance(c[0], list)]
     assert renders == [(["title", "closing"], "1080p"), (["title", "closing"], "1080p"),
                        (["closing"], "1080p")]
-    assert ("editor", "title.py") in calls and ("open", "exported") in calls
+    assert ("editor", "title.py") in calls and ("open", "export") in calls
 
 
 # ───────────────────────────── start and processes ─────────────────────────────
@@ -870,7 +905,7 @@ def test_file_url_is_relative_to_the_renders(talk):
     video.parent.mkdir(parents=True)
     video.write_bytes(b"x")
     assert studio.file_url(talk, video).startswith(f"/file/{talk.id}/files/title/a.mp4?v=")
-    roundabout = talk.pres / "diapositivas" / ".." / "diapos" / "files" / "title" / "a.mp4"
+    roundabout = talk.pres / "slides" / ".." / ".termina" / "files" / "title" / "a.mp4"
     assert studio.file_url(talk, roundabout).startswith(f"/file/{talk.id}/files/title/a.mp4?v=")
 
 

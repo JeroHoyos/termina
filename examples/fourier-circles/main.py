@@ -1,7 +1,7 @@
 from manim import ManimColor
 from manim_slides import Slide
 
-from diapositivas import SlideBase, TalkSlides
+from slides import SlideBase, TalkSlides
 from style import BACKGROUND
 
 

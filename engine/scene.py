@@ -1,6 +1,6 @@
 """Scene that renders only some slides of a talk and saves each one on its own.
 
-It is not used by hand: studio.py launches it from a talk's `presentacion/` folder with
+It is not used by hand: studio.py launches it from the folder of a talk's main.py with
 
     uv run python -m manim_slides render <path>/scene.py Slides
 
@@ -16,11 +16,11 @@ what is needed from it:
   talks), which keeps counters and frame up to date, and it is not built.
 
 While a target is built, the scene writes down what each pause shows (every object, its box and
-the line of the talk that made it) in `diapos/_objects/<name>.json`: the app edits on the slide
+the line of the talk that made it) in `.termina/_objects/<name>.json`: the app edits on the slide
 with it. With STUDIO_NUMBERS = on, each slide shows its page number. With STUDIO_VERTICAL = on, the
 video is 9:16, for a reel.
 
-As soon as a target ends, it is saved in its own `diapos/<name>.json` and `STUDIO: saved <name>`
+As soon as a target ends, it is saved in its own `.termina/<name>.json` and `STUDIO: saved <name>`
 is printed, so the studio shows it while the others render. The other slides that are already
 rendered are not touched.
 """
@@ -44,7 +44,7 @@ if os.environ.get("STUDIO_VERTICAL") == "on":
 sys.path.insert(0, os.environ.get("STUDIO_TALK", os.getcwd()))
 import main  # noqa: E402  (the talk's main.py)
 
-OUTPUT = Path("diapos")
+OUTPUT = Path(".termina")
 TARGETS = {int(i): v for i, v in json.loads(os.environ["STUDIO_TARGETS"]).items()}
 LAST = max(TARGETS)
 START_HOOKS = ("start_slide", "iniciar_slide")
@@ -156,7 +156,7 @@ class Slides(Base):
         self._s_skip(i not in TARGETS and i + 1 not in TARGETS)
 
     def _s_save(self, i):
-        """Saves target i in its own diapos/<name>.json as soon as it is drawn, so the user sees
+        """Saves target i in its own .termina/<name>.json as soon as it is drawn, so the user sees
         each slide while the others still render."""
         info = TARGETS[i]
         self._s_saved.add(i)
