@@ -1,13 +1,16 @@
 # Example talks
 
-Two short talks show what a talk made with Termina looks like. Each slide shows one idea
-that moves, in the style of the [3Blue1Brown videos](https://github.com/3b1b/videos). The code is
-new and does not use LaTeX.
+Five talks show what a talk made with Termina looks like. Each slide shows one idea
+that moves, in the style of the [3Blue1Brown videos](https://github.com/3b1b/videos). The code of the
+first two is new and does not use LaTeX.
 
 | Talk | Folder | Slides | What it shows |
 | --- | --- | --- | --- |
 | Drawing with circles | [`fourier-circles/`](fourier-circles/) | 5 | A sum of circles that turn draws a wave, then a square wave, then a heart. |
 | A butterfly in the equations | [`strange-attractor/`](strange-attractor/) | 5 | The Lorenz system: three rules, a path that never repeats, and two starts that go apart. |
+| ManimGX examples | [`manimgx-examples/`](manimgx-examples/) | 49 | The example films of ManimGX, one on each slide. The trailer uses them. |
+| Termina trailer | [`trailer/`](trailer/) | 10 scenes | The trailer of the README, as a video with music and sound effects made with code. It shows slides of the other three talks. |
+| Termina trailer reel | [`trailer-reel/`](trailer-reel/) | 10 scenes | The same trailer at 9:16, for the phone. Its scenes use the parts of the scenes of the trailer. |
 
 ![Forty circles draw a heart](../docs/media/fourier-heart.gif)
 

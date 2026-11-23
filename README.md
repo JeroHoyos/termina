@@ -83,7 +83,7 @@ Pre-release: there is no installer. These programs are necessary: [uv](https://d
 [Claude Code](https://claude.com/claude-code). Clone it into the folder that holds your talks.
 
 ```powershell
-git clone https://github.com/JeroHoyos/manimrs-studio.git termina
+git clone https://github.com/JeroHoyos/termina.git termina
 cd termina\frontend; npm ci; npm run build; cd ..
 cargo build --release
 .\target\release\termina.exe

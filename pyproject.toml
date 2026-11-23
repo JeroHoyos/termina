@@ -18,6 +18,8 @@ dev = [
 # Maximum cognitive complexity of a function (the default is 15). Run: uv run complexipy .
 max-complexity-allowed = 10
 failed = true
+# Not code of Termina: the ManimGX films of an example talk and the music of the trailer.
+exclude = ["examples/manimgx-examples/films/**", "examples/trailer/music.py"]
 sort = "desc"
 
 [tool.pytest.ini_options]

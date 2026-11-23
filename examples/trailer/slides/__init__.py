@@ -1,0 +1,30 @@
+from . import app, claude, end, export, guide, logo, montage, one_slide, reels, uses
+
+
+class SlideBase:
+    def start_slide(self):
+        """Each scene leaves the stage empty and the next one starts on a cut, on the beat of
+        the music: no fade between them."""
+
+
+def _slide(build):
+    def method(self):
+        self.start_slide()
+        build(self)
+        # The cut at the end of the scene. The video does not stop there.
+        self.next_slide()
+
+    return method
+
+
+class TalkSlides:
+    slide_logo = _slide(logo.build)
+    slide_montage = _slide(montage.build)
+    slide_uses = _slide(uses.build)
+    slide_one_slide = _slide(one_slide.build)
+    slide_app = _slide(app.build)
+    slide_guide = _slide(guide.build)
+    slide_claude = _slide(claude.build)
+    slide_export = _slide(export.build)
+    slide_reels = _slide(reels.build)
+    slide_end = _slide(end.build)

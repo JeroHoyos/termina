@@ -81,6 +81,12 @@ and 14.2 high: put the layout in a column, keep text and objects inside `config.
 use `stills` to check that nothing goes out at the sides. `chiptune` writes new 8-bit music for a
 video or a reel (`music-8bit.wav`) and makes it its music; each call makes a different tune.
 
+For a trailer or a promo video, copy `kit.py` and `style.py` of `examples/trailer` into the video.
+With them a scene is a function of the time on a 1920 x 1080 stage in pixels, cut to the beat of
+its music, and it can show the rendered slides of other talks (`Slide`, `Clip`), also in another
+theme (`recolor`). `examples/trailer` is the trailer of Termina made this way.
+For music and sound effects that follow the scenes, use the `sound` skill.
+
 ## Flow
 
 1. Read the AGENTS.md, CLAUDE.md or README of that talk before touching anything. Its rules are

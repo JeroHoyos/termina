@@ -19,7 +19,7 @@ version = "0.6.0"
 edition = "2021"
 rust-version = "1.85"
 license = "MIT"
-repository = "https://github.com/JeroHoyos/manimrs-studio"
+repository = "https://github.com/JeroHoyos/termina"
 
 [workspace.dependencies]
 studio_agent = { path = "crates/lib/studio_agent" }

@@ -1,0 +1,12 @@
+{
+  "termina": 1,
+  "title": "Termina trailer",
+  "about": "The trailer of Termina, made with Termina",
+  "author": "",
+  "language": "en",
+  "resolution": "1080p",
+  "numbers": "off",
+  "kind": "video",
+  "music": "music.m4a",
+  "engine": "manim-ce"
+}

@@ -1,0 +1,13 @@
+[project]
+name = "trailer-reel"
+version = "0.1.0"
+description = "Termina trailer as a reel: Animated video with Manim"
+requires-python = ">=3.13"
+dependencies = [
+    # manim 0.22 breaks manim-slides 5.7 (it has no config.write_to_movie)
+    "manim>=0.18,<0.22",
+    "manim-slides[pyqt6]>=5.1",
+    "numpy>=1.26",
+    # manim 0.21 can not draw a picture with pillow 13
+    "pillow<13",
+]
